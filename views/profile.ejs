@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Profile - SportsWear</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #e74c3c;
+            --accent-color: #3498db;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+        }
+        
+        .navbar {
+            background-color: var(--primary-color) !important;
+        }
+        
+        .page-header {
+            background: linear-gradient(135deg, var(--primary-color), #34495e);
+            color: white;
+            padding: 60px 0;
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .profile-card {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .profile-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 100px;
+            background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+        }
+        
+        .profile-avatar {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            border: 5px solid white;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            margin: 0 auto 20px;
+            position: relative;
+            z-index: 2;
+            background: white;
+        }
+        
+        .profile-avatar img {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        
+        .profile-name {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 10px;
+        }
+        
+        .profile-badge {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 25px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+        
+        .badge-admin {
+            background: var(--accent-color);
+            color: white;
+        }
+        
+        .badge-user {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .profile-info {
+            text-align: left;
+            max-width: 400px;
+            margin: 30px auto 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 15px;
+        }
+        
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .info-item:last-child {
+            border-bottom: none;
+        }
+        
+        .info-label {
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+        
+        .info-value {
+            color: #666;
+        }
+        
+        .stat-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            text-align: center;
+            margin-bottom: 30px;
+            transition: transform 0.3s;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .stat-icon {
+            width: 60px;
+            height: 60px;
+            background: var(--accent-color);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.5rem;
+            margin: 0 auto 15px;
+        }
+        
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            color: #666;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .activity-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .activity-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: var(--primary-color);
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--accent-color);
+        }
+        
+        .activity-item {
+            display: flex;
+            align-items: center;
+            padding: 15px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .activity-item:last-child {
+            border-bottom: none;
+        }
+        
+        .activity-icon {
+            width: 40px;
+            height: 40px;
+            background: #f0f0f0;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 15px;
+            color: var(--primary-color);
+        }
+        
+        .activity-details {
+            flex: 1;
+        }
+        
+        .activity-action {
+            font-weight: 600;
+            color: var(--primary-color);
+            margin-bottom: 3px;
+        }
+        
+        .activity-time {
+            font-size: 0.8rem;
+            color: #999;
+        }
+        
+        .btn-edit {
+            background: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 10px 30px;
+            border-radius: 25px;
+            font-weight: 600;
+            transition: all 0.3s;
+            margin-top: 20px;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .btn-edit:hover {
+            background: #2980b9;
+            transform: translateY(-2px);
+            color: white;
+        }
+        
+        .recent-order {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .order-number {
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+        
+        .order-amount {
+            font-weight: 700;
+            color: var(--secondary-color);
+        }
+        
+        .order-status {
+            padding: 3px 10px;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .status-completed {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .status-pending {
+            background: #f39c12;
+            color: white;
+        }
+        
+        .status-cancelled {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .discord-login {
+            background: #5865F2;
+            color: white;
+            border: none;
+            padding: 10px 25px;
+            border-radius: 25px;
+            font-weight: 600;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+        }
+        
+        .user-avatar {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            border: 2px solid white;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark sticky-top">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-tshirt me-2"></i>SportsWear
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/shop">Shop</a>
+                    </li>
+                    <% if (user && user.is_admin) { %>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/admin">Admin Panel</a>
+                        </li>
+                    <% } %>
+                </ul>
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/cart">
+                            <i class="fas fa-shopping-cart"></i> Cart
+                            <span id="cart-count" class="badge bg-danger">0</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/history">
+                            <i class="fas fa-history"></i> Orders
+                        </a>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="profileDropdown" role="button" data-bs-toggle="dropdown">
+                            <div class="d-flex align-items-center">
+                                <% if (user.avatar) { %>
+                                    <img src="https://cdn.discordapp.com/avatars/<%= user.discord_id %>/<%= user.avatar %>.png" class="user-avatar me-2">
+                                <% } else { %>
+                                    <i class="fas fa-user-circle me-2"></i>
+                                <% } %>
+                                <span><%= user.username %></span>
+                            </div>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item active" href="/profile"><i class="fas fa-user me-2"></i>Profile</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="/logout"><i class="fas fa-sign-out-alt me-2"></i>Logout</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Page Header -->
+    <section class="page-header">
+        <div class="container">
+            <h1>My Profile</h1>
+            <p>Manage your account and view your activity</p>
+        </div>
+    </section>
+
+    <!-- Main Content -->
+    <div class="container">
+        <div class="row">
+            <!-- Profile Card -->
+            <div class="col-lg-4">
+                <div class="profile-card">
+                    <div class="profile-avatar">
+                        <% if (user.avatar) { %>
+                            <img src="https://cdn.discordapp.com/avatars/<%= user.discord_id %>/<%= user.avatar %>.png" alt="<%= user.username %>">
+                        <% } else { %>
+                            <img src="https://cdn.discordapp.com/embed/avatars/0.png" alt="Default Avatar">
+                        <% } %>
+                    </div>
+                    
+                    <h2 class="profile-name"><%= user.username %></h2>
+                    
+                    <span class="profile-badge <%= user.is_admin ? 'badge-admin' : 'badge-user' %>">
+                        <%= user.is_admin ? 'Administrator' : 'Member' %>
+                    </span>
+                    
+                    <div class="profile-info">
+                        <div class="info-item">
+                            <span class="info-label">Discord ID</span>
+                            <span class="info-value"><%= user.discord_id %></span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Email</span>
+                            <span class="info-value"><%= user.email || 'Not provided' %></span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Member Since</span>
+                            <span class="info-value"><%= new Date(user.created_at).toLocaleDateString() %></span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Last Login</span>
+                            <span class="info-value"><%= user.last_login ? new Date(user.last_login).toLocaleString() : 'First login' %></span>
+                        </div>
+                    </div>
+                    
+                    <!-- <button class="btn-edit" onclick="editProfile()">
+                        <i class="fas fa-edit me-2"></i>Edit Profile
+                    </button> -->
+                </div>
+            </div>
+            
+            <!-- Stats and Activity -->
+            <div class="col-lg-8">
+                <!-- Stats -->
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-shopping-bag"></i>
+                            </div>
+                            <div class="stat-value"><%= stats.total_orders || 0 %></div>
+                            <div class="stat-label">Total Orders</div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="stat-card">
+                            <div class="stat-icon" style="background: #e74c3c;">
+                                <i class="fas fa-rupee-sign"></i>
+                            </div>
+                            <div class="stat-value">₹<%= stats.total_spent || 0 %></div>
+                            <div class="stat-label">Total Spent</div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="stat-card">
+                            <div class="stat-icon" style="background: #27ae60;">
+                                <i class="fas fa-star"></i>
+                            </div>
+                            <div class="stat-value">0</div>
+                            <div class="stat-label">Reviews</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Recent Orders -->
+                <div class="activity-card">
+                    <h4 class="activity-title">Recent Orders</h4>
+                    <% if (orders && orders.length > 0) { %>
+                        <% orders.slice(0, 3).forEach(order => { %>
+                            <div class="recent-order">
+                                <div>
+                                    <span class="order-number"><%= order.order_number %></span>
+                                    <div class="order-amount">₹<%= order.total_amount %></div>
+                                </div>
+                                <div class="text-end">
+                                    <span class="order-status status-<%= order.status %>">
+                                        <%= order.status.toUpperCase() %>
+                                    </span>
+                                    <div class="small text-muted mt-1">
+                                        <%= new Date(order.created_at).toLocaleDateString() %>
+                                    </div>
+                                </div>
+                            </div>
+                        <% }); %>
+                        
+                        <% if (orders.length > 3) { %>
+                            <div class="text-center mt-3">
+                                <a href="/history" class="btn btn-outline-primary">View All Orders</a>
+                            </div>
+                        <% } %>
+                    <% } else { %>
+                        <p class="text-center text-muted my-4">No orders yet</p>
+                        <div class="text-center">
+                            <a href="/shop" class="btn btn-primary">Start Shopping</a>
+                        </div>
+                    <% } %>
+                </div>
+                
+                <!-- Recent Activity -->
+                <div class="activity-card">
+                    <h4 class="activity-title">Recent Activity</h4>
+                    <% if (recentActivity && recentActivity.length > 0) { %>
+                        <% recentActivity.forEach(activity => { %>
+                            <div class="activity-item">
+                                <div class="activity-icon">
+                                    <% if(activity.action === 'login') { %>
+                                        <i class="fas fa-sign-in-alt"></i>
+                                    <% } else if(activity.action === 'order') { %>
+                                        <i class="fas fa-shopping-bag"></i>
+                                    <% } else if(activity.action === 'cart') { %>
+                                        <i class="fas fa-cart-plus"></i>
+                                    <% } else { %>
+                                        <i class="fas fa-history"></i>
+                                    <% } %>
+                                </div>
+                                <div class="activity-details">
+                                    <div class="activity-action">
+                                        <%= activity.action.charAt(0).toUpperCase() + activity.action.slice(1) %>
+                                    </div>
+                                    <div class="activity-time">
+                                        <%= new Date(activity.created_at).toLocaleString() %>
+                                    </div>
+                                </div>
+                            </div>
+                        <% }); %>
+                    <% } else { %>
+                        <p class="text-center text-muted my-4">No recent activity</p>
+                    <% } %>
+                </div>
+                
+                <!-- Account Settings -->
+                <div class="activity-card">
+                    <h4 class="activity-title">Account Settings</h4>
+                    
+                    <div class="d-flex justify-content-between align-items-center p-3 border-bottom">
+                        <div>
+                            <h6 class="mb-0">Email Notifications</h6>
+                            <small class="text-muted">Receive updates about your orders</small>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="emailNotifications" checked>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between align-items-center p-3 border-bottom">
+                        <div>
+                            <h6 class="mb-0">Two-Factor Authentication</h6>
+                            <small class="text-muted">Add extra security to your account</small>
+                        </div>
+                        <button class="btn btn-sm btn-outline-primary">Enable</button>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between align-items-center p-3">
+                        <div>
+                            <h6 class="mb-0">Delete Account</h6>
+                            <small class="text-muted">Permanently delete your account</small>
+                        </div>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteAccount()">Delete</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer" style="background: var(--primary-color); color: white; padding: 50px 0 20px; margin-top: 50px;">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-4 mb-4">
+                    <h5>About Us</h5>
+                    <p>Your one-stop shop for premium sports wear and custom apparel.</p>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <h5>Quick Links</h5>
+                    <ul class="list-unstyled">
+                        <li><a href="/shop" class="text-white-50">Shop</a></li>
+                        <li><a href="/terms" class="text-white-50">Terms & Conditions</a></li>
+                    </ul>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <h5>Contact Info</h5>
+                    <p><i class="fas fa-map-marker-alt me-2"></i> India</p>
+                    <p><i class="fas fa-envelope me-2"></i> support@sportswear.com</p>
+                </div>
+            </div>
+            <hr class="bg-light">
+            <div class="text-center">
+                <p>&copy; 2024 SportsWear. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // Edit profile function
+        function editProfile() {
+            // Implement edit profile modal
+            alert('Edit profile feature coming soon!');
+        }
+        
+        // Delete account function
+        function deleteAccount() {
+            if (confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
+                fetch('/profile/delete', {
+                    method: 'POST'
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        window.location.href = '/logout';
+                    } else {
+                        alert('Failed to delete account');
+                    }
+                })
+                .catch(err => {
+                    console.error('Error:', err);
+                    alert('An error occurred');
+                });
+            }
+        }
+        
+        // Update cart count
+        function updateCartCount() {
+            fetch('/cart/count')
+                .then(res => res.json())
+                .then(data => {
+                    const cartBadge = document.getElementById('cart-count');
+                    if (cartBadge) {
+                        cartBadge.textContent = data.count;
+                        cartBadge.style.display = data.count > 0 ? 'inline' : 'none';
+                    }
+                })
+                .catch(err => console.error('Error updating cart count:', err));
+        }
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            updateCartCount();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Proof - Admin</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #e74c3c;
+            --accent-color: #3498db;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f6f9;
+        }
+        
+        .proof-container {
+            max-width: 800px;
+            margin: 50px auto;
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .proof-image {
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        .proof-image img {
+            max-width: 100%;
+            max-height: 500px;
+            border-radius: 10px;
+            border: 2px solid #e0e0e0;
+        }
+        
+        .detail-row {
+            display: flex;
+            padding: 10px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .detail-label {
+            font-weight: 600;
+            width: 150px;
+            color: var(--primary-color);
+        }
+        
+        .detail-value {
+            flex: 1;
+            color: #666;
+        }
+        
+        .btn-verify {
+            background: #27ae60;
+            color: white;
+            border: none;
+            padding: 10px 25px;
+            border-radius: 25px;
+            font-weight: 600;
+            margin-right: 10px;
+        }
+        
+        .btn-reject {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 10px 25px;
+            border-radius: 25px;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="proof-container">
+            <h2 class="mb-4">Payment Proof Verification</h2>
+            
+            <div class="proof-image">
+                <img src="<%= payment.payment_proof %>" alt="Payment Proof">
+            </div>
+            
+            <div class="mt-4">
+                <div class="detail-row">
+                    <span class="detail-label">Order Number</span>
+                    <span class="detail-value"><%= order.order_number %></span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Customer</span>
+                    <span class="detail-value"><%= user.username %> (<%= user.discord_id %>)</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Amount</span>
+                    <span class="detail-value">₹<%= payment.amount %></span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Payment Method</span>
+                    <span class="detail-value"><%= payment.payment_method %></span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Date</span>
+                    <span class="detail-value"><%= new Date(payment.created_at).toLocaleString() %></span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Phone</span>
+                    <span class="detail-value"><%= order.phone %></span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Address</span>
+                    <span class="detail-value"><%= order.shipping_address %></span>
+                </div>
+            </div>
+            
+            <div class="text-center mt-4">
+                <button class="btn-verify" onclick="verifyPayment(<%= order.id %>, 'completed')">
+                    <i class="fas fa-check me-2"></i>Verify & Complete Order
+                </button>
+                <button class="btn-reject" onclick="verifyPayment(<%= order.id %>, 'failed')">
+                    <i class="fas fa-times me-2"></i>Reject Payment
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function verifyPayment(orderId, status) {
+            if (!confirm(`Are you sure you want to mark this payment as ${status}?`)) return;
+            
+            fetch(`/admin/orders/${orderId}/verify-payment`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ status })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alert(`Payment ${status === 'completed' ? 'verified' : 'rejected'} successfully`);
+                    window.location.href = '/admin/orders';
+                } else {
+                    alert('Failed to update payment status');
+                }
+            })
+            .catch(err => {
+                console.error('Error:', err);
+                alert('An error occurred');
+            });
+        }
+    </script>
+</body>
+</html>

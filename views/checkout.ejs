@@ -23,6 +23,12 @@
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
         
+        .navbar-brand {
+            font-weight: 700;
+            font-size: 1.5rem;
+            color: white !important;
+        }
+        
         .page-header {
             background: linear-gradient(135deg, var(--primary-color), #34495e);
             color: white;
@@ -53,6 +59,8 @@
             border-radius: 15px;
             padding: 25px;
             margin-bottom: 30px;
+            position: sticky;
+            top: 100px;
         }
         
         .summary-item {
@@ -170,34 +178,34 @@
             transform: translateY(-2px);
         }
         
-        .address-card {
-            background: #f8f9fa;
-            border-radius: 10px;
-            padding: 20px;
+        .qr-container {
+            text-align: center;
             margin-bottom: 20px;
-            border: 2px solid transparent;
-            cursor: pointer;
-            transition: all 0.3s;
         }
         
-        .address-card:hover {
-            border-color: var(--accent-color);
+        .qr-code {
+            max-width: 250px;
+            border: 2px solid #e0e0e0;
+            padding: 10px;
+            border-radius: 10px;
+            background: white;
+            margin: 0 auto;
         }
         
-        .address-card.selected {
-            border-color: var(--accent-color);
-            background: #e3f2fd;
+        .qr-code img {
+            width: 100%;
+            height: auto;
         }
         
-        .address-type {
-            font-weight: 600;
-            color: var(--primary-color);
-            margin-bottom: 10px;
+        .upi-details {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 15px;
+            border: 1px solid #e0e0e0;
         }
         
-        .address-details {
-            color: #666;
-            font-size: 0.9rem;
+        .upi-details p {
             margin-bottom: 5px;
         }
         
@@ -206,6 +214,17 @@
             height: 35px;
             border-radius: 50%;
             border: 2px solid white;
+        }
+        
+        .proof-preview {
+            margin-top: 10px;
+            text-align: center;
+        }
+        
+        .proof-preview img {
+            max-height: 150px;
+            border-radius: 10px;
+            border: 2px solid var(--accent-color);
         }
         
         .discord-login {
@@ -284,7 +303,7 @@
     <section class="page-header">
         <div class="container">
             <h1>Checkout</h1>
-            <p>Complete your purchase</p>
+            <p>Complete your purchase securely</p>
         </div>
     </section>
 
@@ -298,8 +317,8 @@
                         <h4 class="section-title">Shipping Address</h4>
                         
                         <div class="form-group">
-                            <label class="form-label">Full Address</label>
-                            <textarea class="form-control" name="address" rows="3" placeholder="Enter your complete shipping address" required><%= user.address || '' %></textarea>
+                            <label class="form-label">Address Line</label>
+                            <textarea class="form-control" name="address" rows="2" placeholder="Enter your street address" required></textarea>
                         </div>
                         
                         <div class="row">
@@ -312,14 +331,14 @@
                             <div class="col-md-6">
                                 <div class="form-group">
                                     <label class="form-label">PIN Code</label>
-                                    <input type="text" class="form-control" name="pincode" placeholder="Enter PIN code" required>
+                                    <input type="text" class="form-control" name="pincode" placeholder="Enter 6-digit PIN code" pattern="[0-9]{6}" maxlength="6" required>
                                 </div>
                             </div>
                         </div>
                         
                         <div class="form-group">
                             <label class="form-label">Phone Number</label>
-                            <input type="tel" class="form-control" name="phone" placeholder="Enter phone number" required>
+                            <input type="tel" class="form-control" name="phone" placeholder="Enter 10-digit mobile number" pattern="[0-9]{10}" maxlength="10" required>
                         </div>
                         
                         <h4 class="section-title mt-4">Payment Method</h4>
@@ -329,13 +348,13 @@
                                 <input type="radio" name="paymentMethod" value="<%= method %>" id="method<%= index %>" <%= index === 0 ? 'checked' : '' %> required>
                                 <label for="method<%= index %>">
                                     <% if(method === 'UPI') { %>
-                                        <i class="fas fa-mobile-alt me-2"></i>
+                                        <i class="fas fa-mobile-alt me-2" style="color: #6c5ce7;"></i>
                                     <% } else if(method === 'Paytm') { %>
-                                        <i class="fas fa-wallet me-2"></i>
+                                        <i class="fas fa-wallet me-2" style="color: #00b894;"></i>
                                     <% } else if(method === 'Google Pay') { %>
-                                        <i class="fab fa-google-pay me-2"></i>
+                                        <i class="fab fa-google-pay me-2" style="color: #4285F4;"></i>
                                     <% } else if(method === 'QR Code') { %>
-                                        <i class="fas fa-qrcode me-2"></i>
+                                        <i class="fas fa-qrcode me-2" style="color: #e17055;"></i>
                                     <% } %>
                                     <%= method %>
                                 </label>
@@ -344,18 +363,37 @@
                         
                         <!-- QR Code Payment Proof Section -->
                         <div id="qrProofSection" class="payment-proof-section">
-                            <h5 class="mb-3">Upload Payment Proof</h5>
-                            <p class="text-muted small mb-3">Please make the payment to the following QR code and upload the screenshot</p>
+                            <h5 class="mb-3"><i class="fas fa-qrcode me-2"></i>Pay with QR Code</h5>
+                            <p class="text-muted small mb-3">Scan the QR code below with any UPI app (Google Pay, PhonePe, Paytm) to pay <strong>₹<%= total.toFixed(2) %></strong></p>
                             
-                            <div class="text-center mb-3">
-                                <img src="/images/sample-qr.jpg" alt="Payment QR Code" style="max-width: 200px;">
-                                <p class="mt-2"><strong>UPI ID:</strong> merchant@okhdfcbank</p>
+                            <div class="qr-container">
+                                <% if (qrCodeDataUrl) { %>
+                                    <div class="qr-code">
+                                        <img src="<%= qrCodeDataUrl %>" alt="Payment QR Code" id="qrCodeImage">
+                                    </div>
+                                <% } else { %>
+                                    <div class="qr-code" style="height: 200px; display: flex; align-items: center; justify-content: center; background: #f8f9fa;">
+                                        <i class="fas fa-qrcode fa-5x text-muted"></i>
+                                    </div>
+                                <% } %>
+                                
+                                <div class="upi-details">
+                                    <p class="mb-1"><strong>UPI ID:</strong> <span id="upiId"><%= upiId %></span></p>
+                                    <p class="mb-1"><strong>Amount:</strong> ₹<span id="qrAmount"><%= total.toFixed(2) %></span></p>
+                                    <p class="mb-0"><strong>Order ID:</strong> <span id="orderId"><%= tempOrderId %></span></p>
+                                </div>
+                                
+                                <div class="alert alert-info mt-3">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    After payment, take a screenshot and upload it below for verification
+                                </div>
                             </div>
                             
                             <div class="form-group">
-                                <label class="form-label">Payment Screenshot</label>
-                                <input type="file" class="form-control" name="paymentProof" accept="image/*" onchange="previewProof(this)">
-                                <div id="proofPreview" class="mt-2"></div>
+                                <label class="form-label">Upload Payment Screenshot</label>
+                                <input type="file" class="form-control" name="paymentProof" id="paymentProof" accept="image/*" onchange="previewProof(this)">
+                                <small class="text-muted">Supported formats: JPG, PNG, GIF (Max 5MB)</small>
+                                <div id="proofPreview" class="proof-preview"></div>
                             </div>
                         </div>
                     </div>
@@ -367,14 +405,14 @@
                             
                             <% cartItems.forEach(item => { %>
                                 <div class="summary-item">
-                                    <span class="item-name"><%= item.name %> x<%= item.quantity %></span>
-                                    <span class="item-price">₹<%= item.price * item.quantity %></span>
+                                    <span class="item-name"><%= item.name %> <span class="text-muted">x<%= item.quantity %></span></span>
+                                    <span class="item-price">₹<%= (item.price * item.quantity).toFixed(2) %></span>
                                 </div>
                             <% }); %>
                             
                             <div class="summary-item">
                                 <span>Subtotal</span>
-                                <span>₹<%= subtotal %></span>
+                                <span>₹<%= subtotal.toFixed(2) %></span>
                             </div>
                             
                             <div class="summary-item">
@@ -396,10 +434,10 @@
                             
                             <div class="total-row d-flex justify-content-between">
                                 <span>Total</span>
-                                <span class="text-danger">₹<%= total.toFixed(2) %></span>
+                                <span class="text-danger fw-bold">₹<%= total.toFixed(2) %></span>
                             </div>
                             
-                            <button type="submit" class="btn-checkout">
+                            <button type="submit" class="btn-checkout" id="placeOrderBtn">
                                 <i class="fas fa-lock me-2"></i>Place Order
                             </button>
                             
@@ -420,19 +458,21 @@
             <div class="row">
                 <div class="col-md-4 mb-4">
                     <h5>About Us</h5>
-                    <p>Your one-stop shop for premium sports wear and custom apparel.</p>
+                    <p>Your one-stop shop for premium sports wear and custom apparel from Adidas, Puma, Under Armour, New Balance, and exclusive custom designs.</p>
                 </div>
                 <div class="col-md-4 mb-4">
                     <h5>Quick Links</h5>
                     <ul class="list-unstyled">
                         <li><a href="/shop" class="text-white-50">Shop</a></li>
                         <li><a href="/terms" class="text-white-50">Terms & Conditions</a></li>
+                        <li><a href="/privacy" class="text-white-50">Privacy Policy</a></li>
                     </ul>
                 </div>
                 <div class="col-md-4 mb-4">
                     <h5>Contact Info</h5>
                     <p><i class="fas fa-map-marker-alt me-2"></i> India</p>
                     <p><i class="fas fa-envelope me-2"></i> support@sportswear.com</p>
+                    <p><i class="fas fa-phone me-2"></i> +91 9876543210</p>
                 </div>
             </div>
             <hr class="bg-light">
@@ -460,12 +500,14 @@
             
             // Show/hide QR proof section
             const qrSection = document.getElementById('qrProofSection');
+            const proofInput = document.getElementById('paymentProof');
+            
             if (method === 'QR Code') {
                 qrSection.classList.add('active');
-                document.querySelector('input[name="paymentProof"]').required = true;
+                proofInput.required = true;
             } else {
                 qrSection.classList.remove('active');
-                document.querySelector('input[name="paymentProof"]').required = false;
+                proofInput.required = false;
             }
         }
         
@@ -475,7 +517,14 @@
             if (input.files && input.files[0]) {
                 const reader = new FileReader();
                 reader.onload = function(e) {
-                    preview.innerHTML = `<img src="${e.target.result}" class="img-fluid" style="max-height: 100px; border-radius: 5px;">`;
+                    preview.innerHTML = `
+                        <div class="mt-2 p-2 border rounded">
+                            <img src="${e.target.result}" class="img-fluid" style="max-height: 150px; border-radius: 5px;">
+                            <p class="mt-2 mb-0 small text-success">
+                                <i class="fas fa-check-circle me-1"></i>Screenshot ready to upload
+                            </p>
+                        </div>
+                    `;
                 };
                 reader.readAsDataURL(input.files[0]);
             } else {
@@ -493,13 +542,27 @@
             }
             
             if (selectedPayment.value === 'QR Code') {
-                const proof = document.querySelector('input[name="paymentProof"]');
+                const proof = document.getElementById('paymentProof');
                 if (!proof.files || !proof.files[0]) {
                     e.preventDefault();
-                    alert('Please upload payment proof for QR code payment');
+                    alert('Please upload payment proof screenshot for QR code payment');
+                    return false;
+                }
+                
+                // Check file size (max 5MB)
+                if (proof.files[0].size > 5 * 1024 * 1024) {
+                    e.preventDefault();
+                    alert('File size too large. Maximum size is 5MB');
                     return false;
                 }
             }
+            
+            // Disable button to prevent double submission
+            const btn = document.getElementById('placeOrderBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Processing...';
+            
+            return true;
         });
         
         // Initialize first payment method as selected
@@ -508,6 +571,18 @@
             if (firstMethod) {
                 firstMethod.classList.add('selected');
             }
+            
+            // Add input validation for Indian PIN code and phone
+            const pincode = document.querySelector('input[name="pincode"]');
+            const phone = document.querySelector('input[name="phone"]');
+            
+            pincode.addEventListener('input', function() {
+                this.value = this.value.replace(/[^0-9]/g, '').slice(0, 6);
+            });
+            
+            phone.addEventListener('input', function() {
+                this.value = this.value.replace(/[^0-9]/g, '').slice(0, 10);
+            });
         });
     </script>
 </body>

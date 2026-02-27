@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shop - SportsWear</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #e74c3c;
+            --accent-color: #3498db;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+        }
+        
+        .navbar {
+            background-color: var(--primary-color) !important;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .navbar-brand {
+            font-weight: 700;
+            font-size: 1.5rem;
+            color: white !important;
+        }
+        
+        .nav-link {
+            color: rgba(255,255,255,0.8) !important;
+            font-weight: 500;
+        }
+        
+        .page-header {
+            background: linear-gradient(135deg, var(--primary-color), #34495e);
+            color: white;
+            padding: 60px 0;
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .page-header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 15px;
+        }
+        
+        .page-header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        
+        .filter-sidebar {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 100px;
+        }
+        
+        .filter-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--primary-color);
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--accent-color);
+        }
+        
+        .filter-group {
+            margin-bottom: 25px;
+        }
+        
+        .filter-group h6 {
+            font-weight: 600;
+            color: var(--primary-color);
+            margin-bottom: 15px;
+        }
+        
+        .filter-option {
+            margin-bottom: 10px;
+        }
+        
+        .filter-option label {
+            margin-left: 8px;
+            color: #666;
+            cursor: pointer;
+        }
+        
+        .product-card {
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+            margin-bottom: 30px;
+            height: 100%;
+            position: relative;
+        }
+        
+        .product-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.15);
+        }
+        
+        .product-image {
+            height: 280px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .product-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.5s;
+        }
+        
+        .product-card:hover .product-image img {
+            transform: scale(1.1);
+        }
+        
+        .product-badge {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: var(--secondary-color);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 25px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            z-index: 2;
+        }
+        
+        .product-info {
+            padding: 20px;
+        }
+        
+        .product-category {
+            color: var(--accent-color);
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+        
+        .product-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: var(--primary-color);
+            height: 50px;
+            overflow: hidden;
+        }
+        
+        .product-price {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--secondary-color);
+            margin-bottom: 15px;
+        }
+        
+        .product-brand {
+            display: inline-block;
+            background: #f0f0f0;
+            padding: 3px 10px;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            color: #666;
+            margin-bottom: 10px;
+        }
+        
+        .btn-view {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 25px;
+            font-weight: 500;
+            transition: all 0.3s;
+            width: 100%;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+        }
+        
+        .btn-view:hover {
+            background: var(--secondary-color);
+            color: white;
+        }
+        
+        .btn-add-cart {
+            background: transparent;
+            color: var(--primary-color);
+            border: 2px solid var(--primary-color);
+            padding: 8px 20px;
+            border-radius: 25px;
+            font-weight: 500;
+            transition: all 0.3s;
+            width: 100%;
+            margin-top: 10px;
+            cursor: pointer;
+        }
+        
+        .btn-add-cart:hover {
+            background: var(--primary-color);
+            color: white;
+        }
+        
+        .pagination {
+            margin-top: 40px;
+            justify-content: center;
+        }
+        
+        .page-item.active .page-link {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+        
+        .page-link {
+            color: var(--primary-color);
+        }
+        
+        .no-products {
+            text-align: center;
+            padding: 60px 20px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .no-products i {
+            font-size: 4rem;
+            color: #ccc;
+            margin-bottom: 20px;
+        }
+        
+        .no-products h3 {
+            color: var(--primary-color);
+            margin-bottom: 10px;
+        }
+        
+        .no-products p {
+            color: #666;
+            margin-bottom: 20px;
+        }
+        
+        .discord-login {
+            background: #5865F2;
+            color: white;
+            border: none;
+            padding: 10px 25px;
+            border-radius: 25px;
+            font-weight: 600;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+        }
+        
+        .discord-login:hover {
+            background: #4752c4;
+            transform: translateY(-2px);
+            color: white;
+        }
+        
+        .user-avatar {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            border: 2px solid white;
+        }
+        
+        .search-box {
+            position: relative;
+            margin-bottom: 20px;
+        }
+        
+        .search-box input {
+            width: 100%;
+            padding: 12px 20px;
+            padding-right: 50px;
+            border: 2px solid #e0e0e0;
+            border-radius: 30px;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+        
+        .search-box input:focus {
+            outline: none;
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 3px rgba(52,152,219,0.1);
+        }
+        
+        .search-box button {
+            position: absolute;
+            right: 5px;
+            top: 5px;
+            background: var(--accent-color);
+            color: white;
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .search-box button:hover {
+            background: var(--primary-color);
+        }
+        
+        .clear-filters {
+            color: var(--secondary-color);
+            text-decoration: none;
+            font-size: 0.9rem;
+            display: inline-block;
+            margin-top: 10px;
+        }
+        
+        .clear-filters:hover {
+            text-decoration: underline;
+        }
+        
+        .footer {
+            background: var(--primary-color);
+            color: white;
+            padding: 50px 0 20px;
+            margin-top: 50px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark sticky-top">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-tshirt me-2"></i>SportsWear
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/shop">Shop</a>
+                    </li>
+                    <% if (user && user.is_admin) { %>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/admin">Admin Panel</a>
+                        </li>
+                    <% } %>
+                </ul>
+                <ul class="navbar-nav">
+                    <% if (user) { %>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/cart">
+                                <i class="fas fa-shopping-cart"></i> Cart
+                                <span id="cart-count" class="badge bg-danger" style="display: none;">0</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/history">
+                                <i class="fas fa-history"></i> Orders
+                            </a>
+                        </li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="profileDropdown" role="button" data-bs-toggle="dropdown">
+                                <div class="d-flex align-items-center">
+                                    <% if (user.avatar) { %>
+                                        <img src="https://cdn.discordapp.com/avatars/<%= user.discord_id %>/<%= user.avatar %>.png" class="user-avatar me-2">
+                                    <% } else { %>
+                                        <i class="fas fa-user-circle me-2"></i>
+                                    <% } %>
+                                    <span><%= user.username %></span>
+                                </div>
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item" href="/profile"><i class="fas fa-user me-2"></i>Profile</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="/logout"><i class="fas fa-sign-out-alt me-2"></i>Logout</a></li>
+                            </ul>
+                        </li>
+                    <% } else { %>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/auth/discord">
+                                <button class="discord-login">
+                                    <i class="fab fa-discord"></i> Login with Discord
+                                </button>
+                            </a>
+                        </li>
+                    <% } %>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Page Header -->
+    <section class="page-header">
+        <div class="container">
+            <h1>Our Collection</h1>
+            <p>Discover the latest styles from top brands and exclusive custom designs</p>
+        </div>
+    </section>
+
+    <!-- Main Content -->
+    <div class="container">
+        <div class="row">
+            <!-- Filters Sidebar -->
+            <div class="col-lg-3">
+                <div class="filter-sidebar">
+                    <h4 class="filter-title">Filters</h4>
+                    
+                    <!-- Search Box -->
+                    <div class="filter-group">
+                        <h6>Search</h6>
+                        <div class="search-box">
+                            <form action="/shop" method="GET" id="searchForm">
+                                <input type="text" name="search" placeholder="Search products..." value="<%= filters.search || '' %>">
+                                <button type="submit"><i class="fas fa-search"></i></button>
+                            </form>
+                        </div>
+                    </div>
+                    
+                    <!-- Categories -->
+                    <div class="filter-group">
+                        <h6>Categories</h6>
+                        <% categories.forEach(cat => { %>
+                            <div class="filter-option">
+                                <input type="radio" name="category" value="<%= cat.category %>" 
+                                    id="cat-<%= cat.category %>" 
+                                    <%= filters.category === cat.category ? 'checked' : '' %>
+                                    onchange="filterProducts()">
+                                <label for="cat-<%= cat.category %>"><%= cat.category %></label>
+                            </div>
+                        <% }); %>
+                        <div class="filter-option">
+                            <input type="radio" name="category" value="" id="cat-all" 
+                                <%= !filters.category ? 'checked' : '' %>
+                                onchange="filterProducts()">
+                            <label for="cat-all">All Categories</label>
+                        </div>
+                    </div>
+                    
+                    <!-- Brands -->
+                    <div class="filter-group">
+                        <h6>Brands</h6>
+                        <% brands.forEach(b => { %>
+                            <div class="filter-option">
+                                <input type="radio" name="brand" value="<%= b.brand %>" 
+                                    id="brand-<%= b.brand %>" 
+                                    <%= filters.brand === b.brand ? 'checked' : '' %>
+                                    onchange="filterProducts()">
+                                <label for="brand-<%= b.brand %>"><%= b.brand %></label>
+                            </div>
+                        <% }); %>
+                        <div class="filter-option">
+                            <input type="radio" name="brand" value="" id="brand-all" 
+                                <%= !filters.brand ? 'checked' : '' %>
+                                onchange="filterProducts()">
+                            <label for="brand-all">All Brands</label>
+                        </div>
+                    </div>
+                    
+                    <!-- Clear Filters -->
+                    <% if (filters.category || filters.brand || filters.search) { %>
+                        <a href="/shop" class="clear-filters">
+                            <i class="fas fa-times-circle me-1"></i> Clear all filters
+                        </a>
+                    <% } %>
+                </div>
+            </div>
+            
+            <!-- Products Grid -->
+            <div class="col-lg-9">
+                <!-- Results Count -->
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h4><%= products.length %> Products Found</h4>
+                    <select class="form-select w-auto" onchange="sortProducts(this.value)">
+                        <option value="newest">Newest First</option>
+                        <option value="price-low">Price: Low to High</option>
+                        <option value="price-high">Price: High to Low</option>
+                        <option value="name">Name: A to Z</option>
+                    </select>
+                </div>
+                
+                <!-- Products Grid -->
+                <% if (products.length > 0) { %>
+                    <div class="row" id="product-grid">
+                        <% products.forEach(product => { %>
+                            <div class="col-md-6 col-lg-4">
+                                <div class="product-card" data-price="<%= product.price %>" data-name="<%= product.name %>" data-date="<%= product.created_at %>">
+                                    <div class="product-image">
+                                        <span class="product-badge"><%= product.brand %></span>
+                                        <img src="<%= product.image_url %>" alt="<%= product.name %>">
+                                    </div>
+                                    <div class="product-info">
+                                        <div class="product-category"><%= product.category %></div>
+                                        <h3 class="product-title"><%= product.name %></h3>
+                                        <div class="product-price">₹<%= product.price %></div>
+                                        <a href="/product/<%= product.id %>" class="btn-view">View Details</a>
+                                        <% if (user) { %>
+                                            <button class="btn-add-cart" onclick="addToCart(<%= product.id %>)">
+                                                <i class="fas fa-cart-plus me-2"></i>Add to Cart
+                                            </button>
+                                        <% } %>
+                                    </div>
+                                </div>
+                            </div>
+                        <% }); %>
+                    </div>
+                    
+                    <!-- Pagination -->
+                    <nav class="mt-5">
+                        <ul class="pagination">
+                            <li class="page-item <%= currentPage === 1 ? 'disabled' : '' %>">
+                                <a class="page-link" href="?page=<%= currentPage - 1 %>">Previous</a>
+                            </li>
+                            <% for(let i = 1; i <= totalPages; i++) { %>
+                                <li class="page-item <%= currentPage === i ? 'active' : '' %>">
+                                    <a class="page-link" href="?page=<%= i %>"><%= i %></a>
+                                </li>
+                            <% } %>
+                            <li class="page-item <%= currentPage === totalPages ? 'disabled' : '' %>">
+                                <a class="page-link" href="?page=<%= currentPage + 1 %>">Next</a>
+                            </li>
+                        </ul>
+                    </nav>
+                <% } else { %>
+                    <div class="no-products">
+                        <i class="fas fa-search"></i>
+                        <h3>No Products Found</h3>
+                        <p>Try adjusting your filters or search criteria</p>
+                        <a href="/shop" class="btn btn-primary">View All Products</a>
+                    </div>
+                <% } %>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-4 mb-4">
+                    <h5>About Us</h5>
+                    <p>Your one-stop shop for premium sports wear and custom apparel. We bring you the best brands and unique designs.</p>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <h5>Quick Links</h5>
+                    <ul class="list-unstyled">
+                        <li><a href="/shop" class="text-white-50">Shop</a></li>
+                        <li><a href="/terms" class="text-white-50">Terms & Conditions</a></li>
+                        <li><a href="/privacy" class="text-white-50">Privacy Policy</a></li>
+                    </ul>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <h5>Contact Info</h5>
+                    <p><i class="fas fa-map-marker-alt me-2"></i> India</p>
+                    <p><i class="fas fa-envelope me-2"></i> support@sportswear.com</p>
+                    <p><i class="fas fa-phone me-2"></i> +91 1234567890</p>
+                </div>
+            </div>
+            <hr class="bg-light">
+            <div class="text-center">
+                <p>&copy; 2024 SportsWear. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/main.js"></script>
+    
+    <script>
+        // Filter function
+        function filterProducts() {
+            const form = document.createElement('form');
+            form.method = 'GET';
+            form.action = '/shop';
+            
+            // Get selected category
+            const category = document.querySelector('input[name="category"]:checked');
+            if (category && category.value) {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'category';
+                input.value = category.value;
+                form.appendChild(input);
+            }
+            
+            // Get selected brand
+            const brand = document.querySelector('input[name="brand"]:checked');
+            if (brand && brand.value) {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'brand';
+                input.value = brand.value;
+                form.appendChild(input);
+            }
+            
+            // Get search query
+            const search = document.querySelector('input[name="search"]');
+            if (search && search.value) {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'search';
+                input.value = search.value;
+                form.appendChild(input);
+            }
+            
+            document.body.appendChild(form);
+            form.submit();
+        }
+        
+        // Sort function
+        function sortProducts(value) {
+            const grid = document.getElementById('product-grid');
+            const products = Array.from(grid.children);
+            
+            products.sort((a, b) => {
+                switch(value) {
+                    case 'price-low':
+                        return parseFloat(a.dataset.price) - parseFloat(b.dataset.price);
+                    case 'price-high':
+                        return parseFloat(b.dataset.price) - parseFloat(a.dataset.price);
+                    case 'name':
+                        return a.dataset.name.localeCompare(b.dataset.name);
+                    case 'newest':
+                    default:
+                        return new Date(b.dataset.date) - new Date(a.dataset.date);
+                }
+            });
+            
+            // Reorder elements
+            products.forEach(product => grid.appendChild(product));
+        }
+        
+        // Add to cart function
+        function addToCart(productId) {
+            if (!<%= user ? 'true' : 'false' %>) {
+                window.location.href = '/auth/discord';
+                return;
+            }
+            
+            fetch(`/cart/add/${productId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ quantity: 1 })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification('Item added to cart!', 'success');
+                    updateCartCount();
+                } else {
+                    showNotification(data.error || 'Failed to add item', 'error');
+                }
+            })
+            .catch(err => {
+                console.error('Error:', err);
+                showNotification('An error occurred', 'error');
+            });
+        }
+        
+        // Show notification
+        function showNotification(message, type) {
+            const notification = document.createElement('div');
+            notification.className = `alert alert-${type === 'success' ? 'success' : 'danger'}`;
+            notification.style.position = 'fixed';
+            notification.style.top = '20px';
+            notification.style.right = '20px';
+            notification.style.zIndex = '9999';
+            notification.style.minWidth = '300px';
+            notification.style.padding = '15px 20px';
+            notification.style.borderRadius = '10px';
+            notification.style.boxShadow = '0 5px 15px rgba(0,0,0,0.2)';
+            notification.style.animation = 'slideIn 0.3s ease';
+            notification.textContent = message;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        }
+        
+        // Update cart count
+        function updateCartCount() {
+            fetch('/cart/count')
+                .then(res => res.json())
+                .then(data => {
+                    const cartBadge = document.getElementById('cart-count');
+                    if (cartBadge) {
+                        cartBadge.textContent = data.count;
+                        cartBadge.style.display = data.count > 0 ? 'inline' : 'none';
+                    }
+                })
+                .catch(err => console.error('Error updating cart count:', err));
+        }
+        
+        // Add CSS animations
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from {
+                    transform: translateX(100%);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+            }
+            
+            @keyframes slideOut {
+                from {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+                to {
+                    transform: translateX(100%);
+                    opacity: 0;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>

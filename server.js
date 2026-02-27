@@ -5,6 +5,7 @@ const DiscordStrategy = require('passport-discord').Strategy;
 const fileUpload = require('express-fileupload');
 const path = require('path');
 const fs = require('fs');
+const QRCode = require('qrcode');
 const { setupDatabase } = require('./database');
 const discordLogger = require('./discordLogger');
 require('dotenv').config();
@@ -137,7 +138,6 @@ function ensureAdmin(req, res, next) {
 app.get('/', async (req, res) => {
     try {
         if (!db) {
-            // If database isn't ready yet, show a loading page or simple template
             return res.render('index', { 
                 user: req.user || null, 
                 featuredProducts: [],
@@ -231,7 +231,6 @@ app.get('/product/:id', async (req, res) => {
             });
         }
 
-        // Log product view
         if (req.user) {
             await discordLogger.logProductView(req.user, product);
         }
@@ -273,11 +272,10 @@ app.get('/cart', ensureAuthenticated, async (req, res) => {
             subtotal += item.price * item.quantity;
         });
 
-        const tax = subtotal * 0.18; // 18% GST
+        const tax = subtotal * 0.18;
         const discount = req.session.discount || 0;
         const total = subtotal + tax - discount;
 
-        // Log cart view
         await discordLogger.logCartView(req.user);
 
         res.render('cart', { 
@@ -303,7 +301,6 @@ app.post('/cart/add/:productId', ensureAuthenticated, async (req, res) => {
         const productId = req.params.productId;
         const quantity = parseInt(req.body.quantity) || 1;
 
-        // Check if product exists and has stock
         const product = await db.get('SELECT * FROM products WHERE id = ?', [productId]);
         if (!product) {
             return res.status(404).json({ error: 'Product not found' });
@@ -313,7 +310,6 @@ app.post('/cart/add/:productId', ensureAuthenticated, async (req, res) => {
             return res.status(400).json({ error: 'Insufficient stock' });
         }
 
-        // Check if item already in cart
         const existingItem = await db.get(
             'SELECT * FROM cart WHERE user_id = ? AND product_id = ?',
             [req.user.id, productId]
@@ -336,7 +332,6 @@ app.post('/cart/add/:productId', ensureAuthenticated, async (req, res) => {
             );
         }
 
-        // Log cart addition
         await discordLogger.logCartAdd(req.user, product, quantity);
 
         res.json({ success: true, message: 'Item added to cart' });
@@ -351,7 +346,6 @@ app.post('/cart/update/:cartId', ensureAuthenticated, async (req, res) => {
     try {
         const { quantity } = req.body;
         
-        // Check stock
         const cartItem = await db.get(`
             SELECT c.*, p.stock 
             FROM cart c 
@@ -393,7 +387,6 @@ app.post('/cart/remove/:cartId', ensureAuthenticated, async (req, res) => {
 
         await db.run('DELETE FROM cart WHERE id = ?', [req.params.cartId]);
 
-        // Log cart removal
         await discordLogger.logCartRemove(req.user, { name: cartItem.name });
 
         res.json({ success: true, message: 'Item removed from cart' });
@@ -433,7 +426,6 @@ app.post('/cart/apply-coupon', ensureAuthenticated, async (req, res) => {
     try {
         const { code } = req.body;
         
-        // Simple coupon logic - you can expand this
         const validCoupons = {
             'WELCOME10': 10,
             'SAVE20': 20,
@@ -441,7 +433,6 @@ app.post('/cart/apply-coupon', ensureAuthenticated, async (req, res) => {
         };
         
         if (validCoupons[code]) {
-            // Get cart subtotal
             const cartItems = await db.all(`
                 SELECT c.*, p.price 
                 FROM cart c 
@@ -456,7 +447,6 @@ app.post('/cart/apply-coupon', ensureAuthenticated, async (req, res) => {
             
             const discountAmount = (subtotal * validCoupons[code]) / 100;
             
-            // Store discount in session
             req.session.discount = discountAmount;
             res.json({ success: true, message: `Coupon applied! You saved ₹${discountAmount}` });
         } else {
@@ -470,7 +460,7 @@ app.post('/cart/apply-coupon', ensureAuthenticated, async (req, res) => {
 
 // ==================== CHECKOUT ROUTES ====================
 
-// Checkout page
+// Checkout page with QR code generation
 app.get('/checkout', ensureAuthenticated, async (req, res) => {
     try {
         const cartItems = await db.all(`
@@ -493,6 +483,20 @@ app.get('/checkout', ensureAuthenticated, async (req, res) => {
         const discount = req.session.discount || 0;
         const total = subtotal + tax - discount;
 
+        // Generate unique order ID for QR
+        const tempOrderId = 'TEMP' + Date.now();
+        
+        // Create UPI payment link
+        const upiId = 'sportswear@okhdfcbank'; // Your UPI ID
+        const payeeName = 'SportsWear';
+        const amount = total.toFixed(2);
+        
+        // Create UPI URL
+        const upiUrl = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(payeeName)}&am=${amount}&cu=INR&tn=${encodeURIComponent('Order ' + tempOrderId)}`;
+        
+        // Generate QR code as data URL
+        const qrCodeDataUrl = await QRCode.toDataURL(upiUrl);
+
         res.render('checkout', { 
             user: req.user, 
             cartItems, 
@@ -500,6 +504,9 @@ app.get('/checkout', ensureAuthenticated, async (req, res) => {
             tax,
             discount,
             total,
+            qrCodeDataUrl,
+            upiId,
+            tempOrderId,
             paymentMethods: ['UPI', 'Paytm', 'Google Pay', 'QR Code']
         });
     } catch (error) {
@@ -514,7 +521,8 @@ app.get('/checkout', ensureAuthenticated, async (req, res) => {
 // Process checkout
 app.post('/checkout/process', ensureAuthenticated, async (req, res) => {
     try {
-        const { paymentMethod, address } = req.body;
+        const { paymentMethod, address, city, pincode, phone } = req.body;
+        const fullAddress = `${address}, ${city} - ${pincode}`;
         let paymentProof = null;
 
         // Handle payment proof upload for QR payments
@@ -555,9 +563,9 @@ app.post('/checkout/process', ensureAuthenticated, async (req, res) => {
 
         // Create order
         const orderResult = await db.run(`
-            INSERT INTO orders (user_id, order_number, total_amount, payment_method, shipping_address, status)
-            VALUES (?, ?, ?, ?, ?, ?)
-        `, [req.user.id, orderNumber, total, paymentMethod, address, 'pending']);
+            INSERT INTO orders (user_id, order_number, total_amount, payment_method, shipping_address, status, phone)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        `, [req.user.id, orderNumber, total, paymentMethod, fullAddress, 'pending', phone]);
 
         // Add order items and update stock
         for (const item of cartItems) {
@@ -623,6 +631,31 @@ app.post('/checkout/process', ensureAuthenticated, async (req, res) => {
     }
 });
 
+// API to generate QR code for amount
+app.post('/api/generate-qr', ensureAuthenticated, async (req, res) => {
+    try {
+        const { amount } = req.body;
+        
+        const upiId = 'sportswear@okhdfcbank';
+        const payeeName = 'SportsWear';
+        const orderId = 'TEMP' + Date.now();
+        
+        const upiUrl = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(payeeName)}&am=${amount}&cu=INR&tn=${encodeURIComponent('Order ' + orderId)}`;
+        
+        const qrCodeDataUrl = await QRCode.toDataURL(upiUrl);
+        
+        res.json({ 
+            success: true, 
+            qrCode: qrCodeDataUrl,
+            upiId: upiId,
+            orderId: orderId
+        });
+    } catch (error) {
+        console.error('QR generation error:', error);
+        res.status(500).json({ error: 'Failed to generate QR code' });
+    }
+});
+
 // Order confirmation
 app.get('/order-confirmation/:id', ensureAuthenticated, async (req, res) => {
     try {
@@ -662,7 +695,6 @@ app.get('/order-confirmation/:id', ensureAuthenticated, async (req, res) => {
 // Profile page
 app.get('/profile', ensureAuthenticated, async (req, res) => {
     try {
-        // Get user statistics
         const orderStats = await db.get(`
             SELECT COUNT(*) as total_orders, SUM(total_amount) as total_spent 
             FROM orders 
@@ -701,10 +733,8 @@ app.get('/profile', ensureAuthenticated, async (req, res) => {
 // Delete account
 app.post('/profile/delete', ensureAuthenticated, async (req, res) => {
     try {
-        // Start transaction
         await db.run('BEGIN TRANSACTION');
         
-        // Delete user data
         await db.run('DELETE FROM cart WHERE user_id = ?', [req.user.id]);
         await db.run('DELETE FROM payments WHERE user_id = ?', [req.user.id]);
         await db.run('DELETE FROM user_activity WHERE user_id = ?', [req.user.id]);
@@ -712,7 +742,6 @@ app.post('/profile/delete', ensureAuthenticated, async (req, res) => {
         
         await db.run('COMMIT');
         
-        // Logout user
         req.logout((err) => {
             if (err) {
                 console.error('Logout error:', err);
@@ -745,7 +774,6 @@ app.get('/history', ensureAuthenticated, async (req, res) => {
             LIMIT ? OFFSET ?
         `, [req.user.id, limit, offset]);
 
-        // Get items for each order
         for (let order of orders) {
             order.items = await db.all(`
                 SELECT oi.*, p.name, p.image_url 
@@ -824,14 +852,12 @@ app.post('/order/:id/reorder', ensureAuthenticated, async (req, res) => {
         );
         
         for (const item of orderItems) {
-            // Check if product still exists and has stock
             const product = await db.get(
                 'SELECT * FROM products WHERE id = ? AND stock >= ?',
                 [item.product_id, item.quantity]
             );
             
             if (product) {
-                // Check if already in cart
                 const existing = await db.get(
                     'SELECT * FROM cart WHERE user_id = ? AND product_id = ?',
                     [req.user.id, item.product_id]
@@ -873,7 +899,6 @@ app.post('/order/:id/cancel', ensureAuthenticated, async (req, res) => {
             return res.status(400).json({ error: 'Order cannot be cancelled' });
         }
         
-        // Start transaction
         await db.run('BEGIN TRANSACTION');
         
         await db.run(
@@ -881,7 +906,6 @@ app.post('/order/:id/cancel', ensureAuthenticated, async (req, res) => {
             [req.params.id]
         );
         
-        // Restore stock
         const orderItems = await db.all(
             'SELECT * FROM order_items WHERE order_id = ?',
             [req.params.id]
@@ -896,7 +920,6 @@ app.post('/order/:id/cancel', ensureAuthenticated, async (req, res) => {
         
         await db.run('COMMIT');
         
-        // Log cancellation
         await discordLogger.logOrderUpdate(req.user, order, 'pending', 'cancelled');
         
         res.json({ success: true });
@@ -924,7 +947,6 @@ app.get('/track-order/:id', ensureAuthenticated, async (req, res) => {
             });
         }
         
-        // Mock tracking data - you can integrate with actual courier API
         const trackingStatus = [
             { status: 'Order Placed', date: order.created_at, completed: true },
             { status: 'Payment Confirmed', date: order.updated_at, completed: order.status !== 'pending' },
@@ -949,7 +971,6 @@ app.get('/track-order/:id', ensureAuthenticated, async (req, res) => {
 // Admin dashboard
 app.get('/admin', ensureAdmin, async (req, res) => {
     try {
-        // Log admin login
         await discordLogger.logAdminLogin(req.user);
 
         const totalUsers = await db.get('SELECT COUNT(*) as count FROM users');
@@ -1021,7 +1042,6 @@ app.post('/admin/users/:userId/ban', ensureAdmin, async (req, res) => {
             req.params.userId
         ]);
 
-        // Log admin action
         await discordLogger.logAdminAction(
             req.user, 
             `${req.body.action === 'ban' ? 'Banned' : 'Unbanned'} user`,
@@ -1035,17 +1055,14 @@ app.post('/admin/users/:userId/ban', ensureAdmin, async (req, res) => {
     }
 });
 
-// ==================== FIXED ADMIN PRODUCTS ROUTE ====================
 // Admin products page
 app.get('/admin/products', ensureAdmin, async (req, res) => {
     try {
         const products = await db.all('SELECT * FROM products ORDER BY created_at DESC');
         
-        // Get distinct categories and brands from database
         const categories = await db.all('SELECT DISTINCT category FROM products WHERE category IS NOT NULL AND category != ""');
         const brands = await db.all('SELECT DISTINCT brand FROM products WHERE brand IS NOT NULL AND brand != ""');
         
-        // Default options if database has no categories/brands
         const defaultCategories = [
             { category: 'T-Shirts' },
             { category: 'Hoodies' },
@@ -1083,7 +1100,6 @@ app.post('/admin/products', ensureAdmin, async (req, res) => {
         const { name, description, price, category, brand, stock } = req.body;
         let imageUrl = '/images/default-product.jpg';
 
-        // Handle image upload
         if (req.files && req.files.image) {
             const file = req.files.image;
             const fileName = `product_${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, '')}`;
@@ -1100,7 +1116,6 @@ app.post('/admin/products', ensureAdmin, async (req, res) => {
 
         const newProduct = { id: result.lastID, name, price, category };
 
-        // Log product addition
         await discordLogger.logProductAdd(req.user, newProduct);
         await discordLogger.logAdminAction(req.user, 'Added product', `Product: ${name}`);
 
@@ -1136,7 +1151,6 @@ app.post('/admin/products/:id/edit', ensureAdmin, async (req, res) => {
             WHERE id = ?
         `, [name, description, price, category, brand, imageUrl, stock, req.params.id]);
 
-        // Log product edit
         await discordLogger.logProductEdit(req.user, { name, price }, 'Product details updated');
         await discordLogger.logAdminAction(req.user, 'Edited product', `Product: ${name}`);
 
@@ -1157,7 +1171,6 @@ app.post('/admin/products/:id/delete', ensureAdmin, async (req, res) => {
 
         await db.run('DELETE FROM products WHERE id = ?', [req.params.id]);
 
-        // Log product deletion
         await discordLogger.logProductDelete(req.user, product);
         await discordLogger.logAdminAction(req.user, 'Deleted product', `Product: ${product.name}`);
 
@@ -1199,7 +1212,6 @@ app.post('/admin/orders/:id/status', ensureAdmin, async (req, res) => {
         await db.run('UPDATE orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', 
             [status, req.params.id]);
 
-        // Log order status change
         await discordLogger.logOrderUpdate(req.user, order, oldStatus, status);
         await discordLogger.logAdminAction(req.user, 'Updated order status', 
             `Order ${order.order_number}: ${oldStatus} -> ${status}`);
@@ -1217,17 +1229,14 @@ app.get('/admin/backup', ensureAdmin, async (req, res) => {
         const dbPath = path.join(__dirname, 'website.db');
         const backupPath = path.join(__dirname, `backup_${Date.now()}.db`);
         
-        // Copy database file
         fs.copyFileSync(dbPath, backupPath);
         
         const stats = fs.statSync(backupPath);
         
-        // Log backup
         await discordLogger.logBackup(req.user, path.basename(backupPath), stats.size);
         await discordLogger.logAdminAction(req.user, 'Created backup', `Backup file: ${path.basename(backupPath)}`);
 
         res.download(backupPath, 'website_backup.db', (err) => {
-            // Delete backup file after download
             fs.unlinkSync(backupPath);
         });
     } catch (error) {
@@ -1246,13 +1255,10 @@ app.post('/admin/restore', ensureAdmin, async (req, res) => {
         const file = req.files.database;
         const dbPath = path.join(__dirname, 'website.db');
         
-        // Close current database connection
         await db.close();
         
-        // Replace database file
         await file.mv(dbPath);
         
-        // Reopen database
         db = await setupDatabase();
 
         await discordLogger.logAdminAction(req.user, 'Restored database', 'Database restored from backup');
@@ -1315,7 +1321,6 @@ app.get('/auth/discord/callback',
         failureMessage: true 
     }),
     async (req, res) => {
-        // Log login
         await discordLogger.logLogin(req.user, req.ip);
         res.redirect('/');
     }

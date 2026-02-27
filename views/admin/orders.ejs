@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Orders</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #e74c3c;
+            --accent-color: #3498db;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f6f9;
+        }
+        
+        .sidebar {
+            background: var(--primary-color);
+            min-height: 100vh;
+            color: white;
+            position: fixed;
+            width: 250px;
+            left: 0;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .sidebar-brand {
+            padding: 20px;
+            text-align: center;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .sidebar-brand h3 {
+            margin: 0;
+            font-weight: 700;
+        }
+        
+        .sidebar-menu {
+            padding: 20px 0;
+        }
+        
+        .sidebar-menu a {
+            display: block;
+            padding: 12px 25px;
+            color: rgba(255,255,255,0.8);
+            text-decoration: none;
+            transition: all 0.3s;
+            border-left: 3px solid transparent;
+        }
+        
+        .sidebar-menu a:hover, .sidebar-menu a.active {
+            background: rgba(255,255,255,0.1);
+            color: white;
+            border-left-color: var(--secondary-color);
+        }
+        
+        .sidebar-menu i {
+            margin-right: 10px;
+            width: 20px;
+        }
+        
+        .main-content {
+            margin-left: 250px;
+            padding: 30px;
+        }
+        
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        
+        .table-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .status-badge {
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .status-pending {
+            background: #f39c12;
+            color: white;
+        }
+        
+        .status-processing {
+            background: #3498db;
+            color: white;
+        }
+        
+        .status-shipped {
+            background: #9b59b6;
+            color: white;
+        }
+        
+        .status-delivered {
+            background: #2ecc71;
+            color: white;
+        }
+        
+        .status-completed {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .status-cancelled {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .btn-action {
+            padding: 5px 10px;
+            font-size: 0.8rem;
+            margin: 0 2px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        
+        .filter-section {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .filter-select {
+            padding: 8px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            min-width: 150px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="sidebar-brand">
+            <h3>Admin Panel</h3>
+            <p class="text-muted small">Welcome, <%= user.username %></p>
+        </div>
+        <div class="sidebar-menu">
+            <a href="/admin">
+                <i class="fas fa-tachometer-alt"></i> Dashboard
+            </a>
+            <a href="/admin/users">
+                <i class="fas fa-users"></i> Users
+            </a>
+            <a href="/admin/products">
+                <i class="fas fa-box"></i> Products
+            </a>
+            <a href="/admin/orders" class="active">
+                <i class="fas fa-shopping-cart"></i> Orders
+            </a>
+            <a href="/" class="mt-5">
+                <i class="fas fa-home"></i> Back to Site
+            </a>
+            <a href="/logout">
+                <i class="fas fa-sign-out-alt"></i> Logout
+            </a>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="container-fluid">
+            <div class="page-header">
+                <h1>Order Management</h1>
+            </div>
+            
+            <!-- Filter Section -->
+            <div class="filter-section">
+                <select class="filter-select" id="statusFilter" onchange="filterOrders()">
+                    <option value="all">All Orders</option>
+                    <option value="pending">Pending</option>
+                    <option value="processing">Processing</option>
+                    <option value="shipped">Shipped</option>
+                    <option value="delivered">Delivered</option>
+                    <option value="completed">Completed</option>
+                    <option value="cancelled">Cancelled</option>
+                </select>
+                
+                <select class="filter-select" id="dateFilter" onchange="filterOrders()">
+                    <option value="all">All Time</option>
+                    <option value="today">Today</option>
+                    <option value="week">This Week</option>
+                    <option value="month">This Month</option>
+                </select>
+            </div>
+            
+            <div class="table-card">
+                <div class="table-responsive">
+                    <table class="table table-hover" id="ordersTable">
+                        <thead>
+                            <tr>
+                                <th>Order #</th>
+                                <th>Customer</th>
+                                <th>Date</th>
+                                <th>Items</th>
+                                <th>Total</th>
+                                <th>Payment</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% orders.forEach(order => { %>
+                                <tr data-status="<%= order.status %>" data-date="<%= order.created_at %>">
+                                    <td><strong><%= order.order_number %></strong></td>
+                                    <td>
+                                        <%= order.username %><br>
+                                        <small class="text-muted"><%= order.discord_id %></small>
+                                    </td>
+                                    <td><%= new Date(order.created_at).toLocaleDateString() %></td>
+                                    <td><%= order.item_count %></td>
+                                    <td><strong>₹<%= order.total_amount %></strong></td>
+                                    <td><%= order.payment_method %></td>
+                                    <td>
+                                        <select class="status-select" onchange="updateStatus(<%= order.id %>, this.value)" data-status="<%= order.status %>">
+                                            <option value="pending" <%= order.status === 'pending' ? 'selected' : '' %>>Pending</option>
+                                            <option value="processing" <%= order.status === 'processing' ? 'selected' : '' %>>Processing</option>
+                                            <option value="shipped" <%= order.status === 'shipped' ? 'selected' : '' %>>Shipped</option>
+                                            <option value="delivered" <%= order.status === 'delivered' ? 'selected' : '' %>>Delivered</option>
+                                            <option value="completed" <%= order.status === 'completed' ? 'selected' : '' %>>Completed</option>
+                                            <option value="cancelled" <%= order.status === 'cancelled' ? 'selected' : '' %>>Cancelled</option>
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <button class="btn-action btn-edit" onclick="viewOrder(<%= order.id %>)">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            <% }); %>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Filter orders
+        function filterOrders() {
+            const status = document.getElementById('statusFilter').value;
+            const dateRange = document.getElementById('dateFilter').value;
+            const rows = document.querySelectorAll('#ordersTable tbody tr');
+            const now = new Date();
+            
+            rows.forEach(row => {
+                let show = true;
+                
+                // Filter by status
+                if (status !== 'all' && row.dataset.status !== status) {
+                    show = false;
+                }
+                
+                // Filter by date
+                if (show && dateRange !== 'all') {
+                    const orderDate = new Date(row.dataset.date);
+                    const diffTime = Math.abs(now - orderDate);
+                    const diffDays = diffTime / (1000 * 60 * 60 * 24);
+                    
+                    if (dateRange === 'today' && diffDays > 1) show = false;
+                    if (dateRange === 'week' && diffDays > 7) show = false;
+                    if (dateRange === 'month' && diffDays > 30) show = false;
+                }
+                
+                row.style.display = show ? '' : 'none';
+            });
+        }
+        
+        // Update order status
+        function updateStatus(orderId, newStatus) {
+            if (!confirm('Update order status?')) {
+                // Reset select to previous value
+                const select = event.target;
+                select.value = select.dataset.status;
+                return;
+            }
+            
+            fetch(`/admin/orders/${orderId}/status`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ status: newStatus })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Order status updated successfully');
+                    // Update the data-status attribute
+                    event.target.dataset.status = newStatus;
+                } else {
+                    alert('Failed to update order status');
+                    // Reset select
+                    event.target.value = event.target.dataset.status;
+                }
+            })
+            .catch(err => {
+                console.error('Error:', err);
+                alert('An error occurred');
+                event.target.value = event.target.dataset.status;
+            });
+        }
+        
+        // View order details
+        function viewOrder(orderId) {
+            window.location.href = `/admin/orders/${orderId}`;
+        }
+    </script>
+</body>
+</html>

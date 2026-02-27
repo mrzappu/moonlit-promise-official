@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terms & Conditions - SportsWear</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #e74c3c;
+            --accent-color: #3498db;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+        }
+        
+        .navbar {
+            background-color: var(--primary-color) !important;
+        }
+        
+        .page-header {
+            background: linear-gradient(135deg, var(--primary-color), #34495e);
+            color: white;
+            padding: 60px 0;
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .terms-container {
+            background: white;
+            border-radius: 20px;
+            padding: 50px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            margin-bottom: 50px;
+        }
+        
+        .terms-section {
+            margin-bottom: 40px;
+        }
+        
+        .terms-section:last-child {
+            margin-bottom: 0;
+        }
+        
+        .terms-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--accent-color);
+        }
+        
+        .terms-subtitle {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--secondary-color);
+            margin: 20px 0 10px;
+        }
+        
+        .terms-text {
+            color: #666;
+            line-height: 1.8;
+            margin-bottom: 15px;
+        }
+        
+        .terms-list {
+            list-style: none;
+            padding-left: 0;
+        }
+        
+        .terms-list li {
+            padding: 10px 0;
+            padding-left: 30px;
+            position: relative;
+            color: #666;
+        }
+        
+        .terms-list li:before {
+            content: '\f00c';
+            font-family: 'Font Awesome 5 Free';
+            font-weight: 900;
+            position: absolute;
+            left: 0;
+            color: var(--accent-color);
+        }
+        
+        .terms-highlight {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 4px solid var(--secondary-color);
+            margin: 20px 0;
+        }
+        
+        .terms-highlight p {
+            margin-bottom: 0;
+            color: var(--primary-color);
+            font-weight: 500;
+        }
+        
+        .table-terms {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        
+        .table-terms th,
+        .table-terms td {
+            padding: 12px;
+            border: 1px solid #e0e0e0;
+            text-align: left;
+        }
+        
+        .table-terms th {
+            background: var(--primary-color);
+            color: white;
+            font-weight: 600;
+        }
+        
+        .table-terms tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+        
+        .contact-info {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+        
+        .contact-item {
+            flex: 1;
+            min-width: 200px;
+            text-align: center;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            transition: transform 0.3s;
+        }
+        
+        .contact-item:hover {
+            transform: translateY(-5px);
+        }
+        
+        .contact-icon {
+            width: 50px;
+            height: 50px;
+            background: var(--accent-color);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 15px;
+            font-size: 1.2rem;
+        }
+        
+        .contact-label {
+            font-weight: 600;
+            color: var(--primary-color);
+            margin-bottom: 5px;
+        }
+        
+        .contact-value {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .discord-login {
+            background: #5865F2;
+            color: white;
+            border: none;
+            padding: 10px 25px;
+            border-radius: 25px;
+            font-weight: 600;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+        }
+        
+        .user-avatar {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            border: 2px solid white;
+        }
+        
+        .last-updated {
+            text-align: right;
+            color: #999;
+            font-style: italic;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e0e0e0;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark sticky-top">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-tshirt me-2"></i>SportsWear
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/shop">Shop</a>
+                    </li>
+                    <% if (user && user.is_admin) { %>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/admin">Admin Panel</a>
+                        </li>
+                    <% } %>
+                </ul>
+                <ul class="navbar-nav">
+                    <% if (user) { %>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/cart">
+                                <i class="fas fa-shopping-cart"></i> Cart
+                                <span id="cart-count" class="badge bg-danger">0</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/history">
+                                <i class="fas fa-history"></i> Orders
+                            </a>
+                        </li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="profileDropdown" role="button" data-bs-toggle="dropdown">
+                                <div class="d-flex align-items-center">
+                                    <% if (user.avatar) { %>
+                                        <img src="https://cdn.discordapp.com/avatars/<%= user.discord_id %>/<%= user.avatar %>.png" class="user-avatar me-2">
+                                    <% } else { %>
+                                        <i class="fas fa-user-circle me-2"></i>
+                                    <% } %>
+                                    <span><%= user.username %></span>
+                                </div>
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item" href="/profile"><i class="fas fa-user me-2"></i>Profile</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="/logout"><i class="fas fa-sign-out-alt me-2"></i>Logout</a></li>
+                            </ul>
+                        </li>
+                    <% } else { %>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/auth/discord">
+                                <button class="discord-login">
+                                    <i class="fab fa-discord"></i> Login with Discord
+                                </button>
+                            </a>
+                        </li>
+                    <% } %>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Page Header -->
+    <section class="page-header">
+        <div class="container">
+            <h1>Terms & Conditions</h1>
+            <p>Please read these terms carefully before using our services</p>
+        </div>
+    </section>
+
+    <!-- Main Content -->
+    <div class="container">
+        <div class="terms-container">
+            <!-- Introduction -->
+            <div class="terms-section">
+                <h2 class="terms-title">1. Introduction</h2>
+                <p class="terms-text">
+                    Welcome to SportsWear. By accessing or using our website, you agree to be bound by these Terms and Conditions. 
+                    If you disagree with any part of these terms, please do not use our website.
+                </p>
+                <div class="terms-highlight">
+                    <p><i class="fas fa-info-circle me-2"></i> These terms were last updated on January 1, 2024</p>
+                </div>
+            </div>
+            
+            <!-- Definitions -->
+            <div class="terms-section">
+                <h2 class="terms-title">2. Definitions</h2>
+                <ul class="terms-list">
+                    <li><strong>"Website"</strong> refers to SportsWear online store</li>
+                    <li><strong>"User"</strong> refers to any person accessing or using our website</li>
+                    <li><strong>"Products"</strong> refers to all items listed for sale on our website</li>
+                    <li><strong>"Order"</strong> refers to a request to purchase products from our website</li>
+                    <li><strong>"Account"</strong> refers to the user's registered profile on our website</li>
+                </ul>
+            </div>
+            
+            <!-- User Accounts -->
+            <div class="terms-section">
+                <h2 class="terms-title">3. User Accounts</h2>
+                <p class="terms-text">
+                    To access certain features of our website, you must create an account using Discord authentication. 
+                    You are responsible for maintaining the confidentiality of your account and all activities under your account.
+                </p>
+                <h3 class="terms-subtitle">Account Responsibilities:</h3>
+                <ul class="terms-list">
+                    <li>You must provide accurate and complete information</li>
+                    <li>You are responsible for all activities under your account</li>
+                    <li>You must notify us immediately of any unauthorized use</li>
+                    <li>We reserve the right to terminate accounts for violations</li>
+                    <li>Accounts may be suspended for suspicious activity</li>
+                </ul>
+            </div>
+            
+            <!-- Products and Pricing -->
+            <div class="terms-section">
+                <h2 class="terms-title">4. Products and Pricing</h2>
+                <p class="terms-text">
+                    We strive to display our products accurately, but we cannot guarantee that your monitor's display 
+                    of any color, texture, or detail will be accurate. We reserve the right to modify prices at any time.
+                </p>
+                
+                <table class="table-terms">
+                    <thead>
+                        <tr>
+                            <th>Category</th>
+                            <th>Description</th>
+                            <th>Warranty</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Branded Apparel</td>
+                            <td>Adidas, Puma, Under Armour, New Balance</td>
+                            <td>30 Days</td>
+                        </tr>
+                        <tr>
+                            <td>Custom Printed</td>
+                            <td>Hammper style, Sticker printed</td>
+                            <td>15 Days</td>
+                        </tr>
+                        <tr>
+                            <td>Esports Collection</td>
+                            <td>Gaming jerseys, Team merchandise</td>
+                            <td>20 Days</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Orders and Payment -->
+            <div class="terms-section">
+                <h2 class="terms-title">5. Orders and Payment</h2>
+                <p class="terms-text">
+                    By placing an order, you are offering to purchase a product subject to these terms. 
+                    All orders are subject to acceptance and availability.
+                </p>
+                
+                <h3 class="terms-subtitle">Payment Methods:</h3>
+                <ul class="terms-list">
+                    <li>UPI (Google Pay, PhonePe, Paytm)</li>
+                    <li>QR Code payments with proof upload</li>
+                    <li>All payments are processed securely</li>
+                    <li>Orders confirmed only after payment verification</li>
+                </ul>
+                
+                <h3 class="terms-subtitle">Order Processing:</h3>
+                <ul class="terms-list">
+                    <li>Orders are processed within 24-48 hours</li>
+                    <li>You'll receive order confirmation via Discord/Email</li>
+                    <li>Payment proof required for QR code payments</li>
+                    <li>Orders may be cancelled if payment not verified within 24 hours</li>
+                </ul>
+            </div>
+            
+            <!-- Shipping and Delivery -->
+            <div class="terms-section">
+                <h2 class="terms-title">6. Shipping and Delivery</h2>
+                <p class="terms-text">
+                    We offer shipping across India. Delivery times may vary based on your location and product availability.
+                </p>
+                
+                <h3 class="terms-subtitle">Delivery Timeline:</h3>
+                <ul class="terms-list">
+                    <li>Metro Cities: 3-5 business days</li>
+                    <li>Tier 2 Cities: 5-7 business days</li>
+                    <li>Rural Areas: 7-10 business days</li>
+                    <li>Custom Products: 10-15 business days</li>
+                </ul>
+                
+                <h3 class="terms-subtitle">Shipping Charges:</h3>
+                <ul class="terms-list">
+                    <li>Free shipping on orders above ₹999</li>
+                    <li>₹50 shipping charge for orders below ₹999</li>
+                    <li>No hidden charges</li>
+                </ul>
+            </div>
+            
+            <!-- Returns and Refunds -->
+            <div class="terms-section">
+                <h2 class="terms-title">7. Returns and Refunds</h2>
+                <p class="terms-text">
+                    We want you to be completely satisfied with your purchase. If you're not happy with your order, 
+                    we offer returns under certain conditions.
+                </p>
+                
+                <h3 class="terms-subtitle">Return Policy:</h3>
+                <ul class="terms-list">
+                    <li>Returns accepted within 7 days of delivery</li>
+                    <li>Items must be unused and in original packaging</li>
+                    <li>Custom printed items cannot be returned unless defective</li>
+                    <li>Return shipping to be borne by customer</li>
+                </ul>
+                
+                <h3 class="terms-subtitle">Refund Process:</h3>
+                <ul class="terms-list">
+                    <li>Refunds processed within 5-7 business days</li>
+                    <li>Amount credited to original payment method</li>
+                    <li>QR code payments refunded via bank transfer</li>
+                    <li>Contact support for refund status</li>
+                </ul>
+            </div>
+            
+            <!-- User Conduct -->
+            <div class="terms-section">
+                <h2 class="terms-title">8. User Conduct</h2>
+                <p class="terms-text">
+                    You agree not to use our website for any unlawful purpose or in any way that could damage, 
+                    disable, or impair our services.
+                </p>
+                
+                <h3 class="terms-subtitle">Prohibited Activities:</h3>
+                <ul class="terms-list">
+                    <li>Attempting to gain unauthorized access</li>
+                    <li>Using automated systems or bots</li>
+                    <li>Harassing other users or staff</li>
+                    <li>Posting false or misleading reviews</li>
+                    <li>Engaging in fraudulent transactions</li>
+                </ul>
+            </div>
+            
+            <!-- Privacy Policy -->
+            <div class="terms-section">
+                <h2 class="terms-title">9. Privacy Policy</h2>
+                <p class="terms-text">
+                    Your privacy is important to us. We collect and use your information as described in our Privacy Policy. 
+                    By using our website, you consent to such collection and use.
+                </p>
+                
+                <h3 class="terms-subtitle">Data Collection:</h3>
+                <ul class="terms-list">
+                    <li>Discord ID and username for authentication</li>
+                    <li>Order history and preferences</li>
+                    <li>Payment information (processed securely)</li>
+                    <li>Communication preferences</li>
+                </ul>
+            </div>
+            
+            <!-- Limitation of Liability -->
+            <div class="terms-section">
+                <h2 class="terms-title">10. Limitation of Liability</h2>
+                <p class="terms-text">
+                    To the maximum extent permitted by law, SportsWear shall not be liable for any indirect, 
+                    incidental, special, consequential, or punitive damages arising out of or relating to your use of our website.
+                </p>
+            </div>
+            
+            <!-- Changes to Terms -->
+            <div class="terms-section">
+                <h2 class="terms-title">11. Changes to Terms</h2>
+                <p class="terms-text">
+                    We reserve the right to modify these terms at any time. We will notify users of any material changes 
+                    via email or through our website. Continued use of our services after such modifications constitutes 
+                    your acceptance of the updated terms.
+                </p>
+            </div>
+            
+            <!-- Contact Information -->
+            <div class="terms-section">
+                <h2 class="terms-title">12. Contact Us</h2>
+                <p class="terms-text">
+                    If you have any questions about these Terms, please contact us:
+                </p>
+                
+                <div class="contact-info">
+                    <div class="contact-item">
+                        <div class="contact-icon">
+                            <i class="fas fa-envelope"></i>
+                        </div>
+                        <div class="contact-label">Email</div>
+                        <div class="contact-value">support@sportswear.com</div>
+                    </div>
+                    
+                    <div class="contact-item">
+                        <div class="contact-icon">
+                            <i class="fas fa-phone"></i>
+                        </div>
+                        <div class="contact-label">Phone</div>
+                        <div class="contact-value">+91 1234567890</div>
+                    </div>
+                    
+                    <div class="contact-item">
+                        <div class="contact-icon">
+                            <i class="fab fa-discord"></i>
+                        </div>
+                        <div class="contact-label">Discord</div>
+                        <div class="contact-value">@sportswear_support</div>
+                    </div>
+                    
+                    <div class="contact-item">
+                        <div class="contact-icon">
+                            <i class="fas fa-map-marker-alt"></i>
+                        </div>
+                        <div class="contact-label">Address</div>
+                        <div class="contact-value">Mumbai, India</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Last Updated -->
+            <div class="last-updated">
+                <i class="far fa-clock me-2"></i> Last Updated: January 1, 2024
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer" style="background: var(--primary-color); color: white; padding: 50px 0 20px;">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-4 mb-4">
+                    <h5>About Us</h5>
+                    <p>Your one-stop shop for premium sports wear and custom apparel.</p>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <h5>Quick Links</h5>
+                    <ul class="list-unstyled">
+                        <li><a href="/shop" class="text-white-50">Shop</a></li>
+                        <li><a href="/terms" class="text-white-50">Terms & Conditions</a></li>
+                    </ul>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <h5>Contact Info</h5>
+                    <p><i class="fas fa-map-marker-alt me-2"></i> India</p>
+                    <p><i class="fas fa-envelope me-2"></i> support@sportswear.com</p>
+                </div>
+            </div>
+            <hr class="bg-light">
+            <div class="text-center">
+                <p>&copy; 2024 SportsWear. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Update cart count if user is logged in
+        <% if (user) { %>
+            function updateCartCount() {
+                fetch('/cart/count')
+                    .then(res => res.json())
+                    .then(data => {
+                        const cartBadge = document.getElementById('cart-count');
+                        if (cartBadge) {
+                            cartBadge.textContent = data.count;
+                            cartBadge.style.display = data.count > 0 ? 'inline' : 'none';
+                        }
+                    })
+                    .catch(err => console.error('Error updating cart count:', err));
+            }
+            
+            document.addEventListener('DOMContentLoaded', updateCartCount);
+        <% } %>
+    </script>
+</body>
+</html>

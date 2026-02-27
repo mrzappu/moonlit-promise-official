@@ -63,7 +63,7 @@ passport.use(new DiscordStrategy({
             return done(null, false, { message: 'You are banned from this site' });
         }
 
-        const adminIds = process.env.ADMIN_DISCORD_IDS.split(',');
+        const adminIds = process.env.ADMIN_DISCORD_IDS ? process.env.ADMIN_DISCORD_IDS.split(',') : [];
         const isAdmin = adminIds.includes(profile.id);
 
         if (!user) {
@@ -128,7 +128,9 @@ function ensureAdmin(req, res, next) {
     res.status(403).render('error', { message: 'Access denied. Admin only.' });
 }
 
-// Routes
+// ==================== PUBLIC ROUTES ====================
+
+// Home page
 app.get('/', async (req, res) => {
     try {
         const featuredProducts = await db.all('SELECT * FROM products ORDER BY RANDOM() LIMIT 8');
@@ -143,26 +145,45 @@ app.get('/', async (req, res) => {
     }
 });
 
+// Shop page
 app.get('/shop', async (req, res) => {
     try {
         const { category, brand, search } = req.query;
+        const page = parseInt(req.query.page) || 1;
+        const limit = 12;
+        const offset = (page - 1) * limit;
+        
         let query = 'SELECT * FROM products WHERE 1=1';
+        let countQuery = 'SELECT COUNT(*) as count FROM products WHERE 1=1';
         const params = [];
+        const countParams = [];
 
         if (category) {
             query += ' AND category = ?';
+            countQuery += ' AND category = ?';
             params.push(category);
+            countParams.push(category);
         }
         if (brand) {
             query += ' AND brand = ?';
+            countQuery += ' AND brand = ?';
             params.push(brand);
+            countParams.push(brand);
         }
         if (search) {
             query += ' AND (name LIKE ? OR description LIKE ?)';
+            countQuery += ' AND (name LIKE ? OR description LIKE ?)';
             params.push(`%${search}%`, `%${search}%`);
+            countParams.push(`%${search}%`, `%${search}%`);
         }
 
+        query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+        params.push(limit, offset);
+
         const products = await db.all(query, params);
+        const totalCount = await db.get(countQuery, countParams);
+        const totalPages = Math.ceil(totalCount.count / limit);
+        
         const categories = await db.all('SELECT DISTINCT category FROM products');
         const brands = await db.all('SELECT DISTINCT brand FROM products');
 
@@ -171,7 +192,9 @@ app.get('/shop', async (req, res) => {
             products, 
             categories, 
             brands,
-            filters: { category, brand, search }
+            filters: { category, brand, search },
+            currentPage: page,
+            totalPages
         });
     } catch (error) {
         console.error('Shop page error:', error);
@@ -179,6 +202,7 @@ app.get('/shop', async (req, res) => {
     }
 });
 
+// Product details
 app.get('/product/:id', async (req, res) => {
     try {
         const product = await db.get('SELECT * FROM products WHERE id = ?', [req.params.id]);
@@ -203,30 +227,50 @@ app.get('/product/:id', async (req, res) => {
     }
 });
 
+// Terms page
+app.get('/terms', (req, res) => {
+    res.render('terms', { user: req.user });
+});
+
+// ==================== CART ROUTES ====================
+
+// View cart
 app.get('/cart', ensureAuthenticated, async (req, res) => {
     try {
         const cartItems = await db.all(`
-            SELECT c.*, p.name, p.price, p.image_url 
+            SELECT c.*, p.name, p.price, p.image_url, p.stock 
             FROM cart c 
             JOIN products p ON c.product_id = p.id 
             WHERE c.user_id = ?
         `, [req.user.id]);
 
-        let total = 0;
+        let subtotal = 0;
         cartItems.forEach(item => {
-            total += item.price * item.quantity;
+            subtotal += item.price * item.quantity;
         });
+
+        const tax = subtotal * 0.18; // 18% GST
+        const discount = req.session.discount || 0;
+        const total = subtotal + tax - discount;
 
         // Log cart view
         await discordLogger.logCartView(req.user);
 
-        res.render('cart', { user: req.user, cartItems, total });
+        res.render('cart', { 
+            user: req.user, 
+            cartItems, 
+            subtotal,
+            tax,
+            discount,
+            total
+        });
     } catch (error) {
         console.error('Cart page error:', error);
         res.status(500).render('error', { message: 'Server error' });
     }
 });
 
+// Add to cart
 app.post('/cart/add/:productId', ensureAuthenticated, async (req, res) => {
     try {
         const productId = req.params.productId;
@@ -249,9 +293,14 @@ app.post('/cart/add/:productId', ensureAuthenticated, async (req, res) => {
         );
 
         if (existingItem) {
+            const newQuantity = existingItem.quantity + quantity;
+            if (newQuantity > product.stock) {
+                return res.status(400).json({ error: 'Cannot add more than available stock' });
+            }
+            
             await db.run(
-                'UPDATE cart SET quantity = quantity + ? WHERE id = ?',
-                [quantity, existingItem.id]
+                'UPDATE cart SET quantity = ? WHERE id = ?',
+                [newQuantity, existingItem.id]
             );
         } else {
             await db.run(
@@ -270,6 +319,40 @@ app.post('/cart/add/:productId', ensureAuthenticated, async (req, res) => {
     }
 });
 
+// Update cart item quantity
+app.post('/cart/update/:cartId', ensureAuthenticated, async (req, res) => {
+    try {
+        const { quantity } = req.body;
+        
+        // Check stock
+        const cartItem = await db.get(`
+            SELECT c.*, p.stock 
+            FROM cart c 
+            JOIN products p ON c.product_id = p.id 
+            WHERE c.id = ? AND c.user_id = ?
+        `, [req.params.cartId, req.user.id]);
+
+        if (!cartItem) {
+            return res.status(404).json({ error: 'Cart item not found' });
+        }
+
+        if (quantity > cartItem.stock) {
+            return res.status(400).json({ error: 'Insufficient stock' });
+        }
+
+        await db.run(
+            'UPDATE cart SET quantity = ? WHERE id = ? AND user_id = ?',
+            [quantity, req.params.cartId, req.user.id]
+        );
+        
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Update cart error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// Remove from cart
 app.post('/cart/remove/:cartId', ensureAuthenticated, async (req, res) => {
     try {
         const cartItem = await db.get(
@@ -293,10 +376,78 @@ app.post('/cart/remove/:cartId', ensureAuthenticated, async (req, res) => {
     }
 });
 
+// Clear cart
+app.post('/cart/clear', ensureAuthenticated, async (req, res) => {
+    try {
+        await db.run('DELETE FROM cart WHERE user_id = ?', [req.user.id]);
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Clear cart error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// Cart count API
+app.get('/cart/count', ensureAuthenticated, async (req, res) => {
+    try {
+        const result = await db.get(
+            'SELECT SUM(quantity) as count FROM cart WHERE user_id = ?',
+            [req.user.id]
+        );
+        res.json({ count: result.count || 0 });
+    } catch (error) {
+        console.error('Cart count error:', error);
+        res.json({ count: 0 });
+    }
+});
+
+// Apply coupon
+app.post('/cart/apply-coupon', ensureAuthenticated, async (req, res) => {
+    try {
+        const { code } = req.body;
+        
+        // Simple coupon logic - you can expand this
+        const validCoupons = {
+            'WELCOME10': 10,
+            'SAVE20': 20,
+            'FREESHIP': 0
+        };
+        
+        if (validCoupons[code]) {
+            // Get cart subtotal
+            const cartItems = await db.all(`
+                SELECT c.*, p.price 
+                FROM cart c 
+                JOIN products p ON c.product_id = p.id 
+                WHERE c.user_id = ?
+            `, [req.user.id]);
+            
+            let subtotal = 0;
+            cartItems.forEach(item => {
+                subtotal += item.price * item.quantity;
+            });
+            
+            const discountAmount = (subtotal * validCoupons[code]) / 100;
+            
+            // Store discount in session
+            req.session.discount = discountAmount;
+            res.json({ success: true, message: `Coupon applied! You saved ₹${discountAmount}` });
+        } else {
+            res.json({ success: false, message: 'Invalid coupon code' });
+        }
+    } catch (error) {
+        console.error('Apply coupon error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// ==================== CHECKOUT ROUTES ====================
+
+// Checkout page
 app.get('/checkout', ensureAuthenticated, async (req, res) => {
     try {
         const cartItems = await db.all(`
-            SELECT c.*, p.name, p.price, p.image_url 
+            SELECT c.*, p.name, p.price, p.image_url, p.stock 
             FROM cart c 
             JOIN products p ON c.product_id = p.id 
             WHERE c.user_id = ?
@@ -306,14 +457,21 @@ app.get('/checkout', ensureAuthenticated, async (req, res) => {
             return res.redirect('/cart');
         }
 
-        let total = 0;
+        let subtotal = 0;
         cartItems.forEach(item => {
-            total += item.price * item.quantity;
+            subtotal += item.price * item.quantity;
         });
+
+        const tax = subtotal * 0.18;
+        const discount = req.session.discount || 0;
+        const total = subtotal + tax - discount;
 
         res.render('checkout', { 
             user: req.user, 
             cartItems, 
+            subtotal,
+            tax,
+            discount,
             total,
             paymentMethods: ['UPI', 'Paytm', 'Google Pay', 'QR Code']
         });
@@ -323,6 +481,7 @@ app.get('/checkout', ensureAuthenticated, async (req, res) => {
     }
 });
 
+// Process checkout
 app.post('/checkout/process', ensureAuthenticated, async (req, res) => {
     try {
         const { paymentMethod, address } = req.body;
@@ -331,7 +490,7 @@ app.post('/checkout/process', ensureAuthenticated, async (req, res) => {
         // Handle payment proof upload for QR payments
         if (paymentMethod === 'QR Code' && req.files && req.files.paymentProof) {
             const file = req.files.paymentProof;
-            const fileName = `proof_${Date.now()}_${file.name}`;
+            const fileName = `proof_${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, '')}`;
             const uploadPath = path.join(__dirname, 'public/uploads', fileName);
             
             await file.mv(uploadPath);
@@ -340,7 +499,7 @@ app.post('/checkout/process', ensureAuthenticated, async (req, res) => {
 
         // Get cart items
         const cartItems = await db.all(
-            'SELECT c.*, p.price FROM cart c JOIN products p ON c.product_id = p.id WHERE c.user_id = ?',
+            'SELECT c.*, p.price, p.id as product_id FROM cart c JOIN products p ON c.product_id = p.id WHERE c.user_id = ?',
             [req.user.id]
         );
 
@@ -349,13 +508,20 @@ app.post('/checkout/process', ensureAuthenticated, async (req, res) => {
         }
 
         // Calculate total
-        let total = 0;
+        let subtotal = 0;
         cartItems.forEach(item => {
-            total += item.price * item.quantity;
+            subtotal += item.price * item.quantity;
         });
+        
+        const tax = subtotal * 0.18;
+        const discount = req.session.discount || 0;
+        const total = subtotal + tax - discount;
 
         // Generate order number
         const orderNumber = 'ORD' + Date.now() + Math.floor(Math.random() * 1000);
+
+        // Start transaction
+        await db.run('BEGIN TRANSACTION');
 
         // Create order
         const orderResult = await db.run(`
@@ -363,7 +529,7 @@ app.post('/checkout/process', ensureAuthenticated, async (req, res) => {
             VALUES (?, ?, ?, ?, ?, ?)
         `, [req.user.id, orderNumber, total, paymentMethod, address, 'pending']);
 
-        // Add order items
+        // Add order items and update stock
         for (const item of cartItems) {
             await db.run(`
                 INSERT INTO order_items (order_id, product_id, quantity, price)
@@ -383,6 +549,15 @@ app.post('/checkout/process', ensureAuthenticated, async (req, res) => {
             VALUES (?, ?, ?, ?, ?, ?)
         `, [orderResult.lastID, req.user.id, total, paymentMethod, paymentProof, 'pending']);
 
+        // Clear cart
+        await db.run('DELETE FROM cart WHERE user_id = ?', [req.user.id]);
+
+        // Clear discount session
+        delete req.session.discount;
+
+        // Commit transaction
+        await db.run('COMMIT');
+
         // Get payment details for logging
         const payment = {
             order_id: orderResult.lastID,
@@ -398,9 +573,6 @@ app.post('/checkout/process', ensureAuthenticated, async (req, res) => {
             await discordLogger.logPaymentSuccess(req.user, payment, paymentProof);
         }
 
-        // Clear cart
-        await db.run('DELETE FROM cart WHERE user_id = ?', [req.user.id]);
-
         // Log order creation
         const order = {
             order_number: orderNumber,
@@ -411,12 +583,14 @@ app.post('/checkout/process', ensureAuthenticated, async (req, res) => {
 
         res.redirect('/order-confirmation/' + orderResult.lastID);
     } catch (error) {
+        await db.run('ROLLBACK');
         console.error('Checkout process error:', error);
         await discordLogger.logError(error, { location: 'checkout', user: req.user });
         res.status(500).render('error', { message: 'Server error' });
     }
 });
 
+// Order confirmation
 app.get('/order-confirmation/:id', ensureAuthenticated, async (req, res) => {
     try {
         const order = await db.get(`
@@ -444,24 +618,9 @@ app.get('/order-confirmation/:id', ensureAuthenticated, async (req, res) => {
     }
 });
 
-app.get('/history', ensureAuthenticated, async (req, res) => {
-    try {
-        const orders = await db.all(`
-            SELECT o.*, COUNT(oi.id) as item_count 
-            FROM orders o 
-            LEFT JOIN order_items oi ON o.id = oi.order_id 
-            WHERE o.user_id = ? 
-            GROUP BY o.id 
-            ORDER BY o.created_at DESC
-        `, [req.user.id]);
+// ==================== USER PROFILE ROUTES ====================
 
-        res.render('history', { user: req.user, orders });
-    } catch (error) {
-        console.error('History page error:', error);
-        res.status(500).render('error', { message: 'Server error' });
-    }
-});
-
+// Profile page
 app.get('/profile', ensureAuthenticated, async (req, res) => {
     try {
         // Get user statistics
@@ -469,6 +628,13 @@ app.get('/profile', ensureAuthenticated, async (req, res) => {
             SELECT COUNT(*) as total_orders, SUM(total_amount) as total_spent 
             FROM orders 
             WHERE user_id = ?
+        `, [req.user.id]);
+
+        const recentOrders = await db.all(`
+            SELECT * FROM orders 
+            WHERE user_id = ? 
+            ORDER BY created_at DESC 
+            LIMIT 5
         `, [req.user.id]);
 
         const recentActivity = await db.all(`
@@ -481,6 +647,7 @@ app.get('/profile', ensureAuthenticated, async (req, res) => {
         res.render('profile', { 
             user: req.user, 
             stats: orderStats,
+            orders: recentOrders,
             recentActivity 
         });
     } catch (error) {
@@ -489,33 +656,271 @@ app.get('/profile', ensureAuthenticated, async (req, res) => {
     }
 });
 
-app.get('/terms', (req, res) => {
-    res.render('terms', { user: req.user });
+// Delete account
+app.post('/profile/delete', ensureAuthenticated, async (req, res) => {
+    try {
+        // Start transaction
+        await db.run('BEGIN TRANSACTION');
+        
+        // Delete user data
+        await db.run('DELETE FROM cart WHERE user_id = ?', [req.user.id]);
+        await db.run('DELETE FROM payments WHERE user_id = ?', [req.user.id]);
+        await db.run('DELETE FROM user_activity WHERE user_id = ?', [req.user.id]);
+        await db.run('DELETE FROM users WHERE id = ?', [req.user.id]);
+        
+        await db.run('COMMIT');
+        
+        // Logout user
+        req.logout((err) => {
+            if (err) {
+                console.error('Logout error:', err);
+            }
+            res.json({ success: true });
+        });
+    } catch (error) {
+        await db.run('ROLLBACK');
+        console.error('Delete account error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
 });
 
-// Admin Routes
+// ==================== ORDER HISTORY ROUTES ====================
+
+// Order history
+app.get('/history', ensureAuthenticated, async (req, res) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = 10;
+        const offset = (page - 1) * limit;
+
+        const orders = await db.all(`
+            SELECT o.*, COUNT(oi.id) as item_count 
+            FROM orders o 
+            LEFT JOIN order_items oi ON o.id = oi.order_id 
+            WHERE o.user_id = ? 
+            GROUP BY o.id 
+            ORDER BY o.created_at DESC
+            LIMIT ? OFFSET ?
+        `, [req.user.id, limit, offset]);
+
+        // Get items for each order
+        for (let order of orders) {
+            order.items = await db.all(`
+                SELECT oi.*, p.name, p.image_url 
+                FROM order_items oi 
+                JOIN products p ON oi.product_id = p.id 
+                WHERE oi.order_id = ?
+            `, [order.id]);
+        }
+
+        const totalCount = await db.get(
+            'SELECT COUNT(*) as count FROM orders WHERE user_id = ?',
+            [req.user.id]
+        );
+        const totalPages = Math.ceil(totalCount.count / limit);
+
+        res.render('history', { 
+            user: req.user, 
+            orders,
+            currentPage: page,
+            totalPages
+        });
+    } catch (error) {
+        console.error('History page error:', error);
+        res.status(500).render('error', { message: 'Server error' });
+    }
+});
+
+// Order details
+app.get('/order/:id', ensureAuthenticated, async (req, res) => {
+    try {
+        const order = await db.get(`
+            SELECT o.*, u.username, u.discord_id 
+            FROM orders o 
+            JOIN users u ON o.user_id = u.id 
+            WHERE o.id = ? AND o.user_id = ?
+        `, [req.params.id, req.user.id]);
+        
+        if (!order) {
+            return res.status(404).render('error', { message: 'Order not found' });
+        }
+        
+        const orderItems = await db.all(`
+            SELECT oi.*, p.name, p.image_url, p.description 
+            FROM order_items oi 
+            JOIN products p ON oi.product_id = p.id 
+            WHERE oi.order_id = ?
+        `, [req.params.id]);
+        
+        const payment = await db.get(
+            'SELECT * FROM payments WHERE order_id = ?',
+            [req.params.id]
+        );
+        
+        res.render('order-details', { user: req.user, order, orderItems, payment });
+    } catch (error) {
+        console.error('Order details error:', error);
+        res.status(500).render('error', { message: 'Server error' });
+    }
+});
+
+// Reorder
+app.post('/order/:id/reorder', ensureAuthenticated, async (req, res) => {
+    try {
+        const orderItems = await db.all(
+            'SELECT product_id, quantity FROM order_items WHERE order_id = ?',
+            [req.params.id]
+        );
+        
+        for (const item of orderItems) {
+            // Check if product still exists and has stock
+            const product = await db.get(
+                'SELECT * FROM products WHERE id = ? AND stock >= ?',
+                [item.product_id, item.quantity]
+            );
+            
+            if (product) {
+                // Check if already in cart
+                const existing = await db.get(
+                    'SELECT * FROM cart WHERE user_id = ? AND product_id = ?',
+                    [req.user.id, item.product_id]
+                );
+                
+                if (existing) {
+                    const newQuantity = existing.quantity + item.quantity;
+                    if (newQuantity <= product.stock) {
+                        await db.run(
+                            'UPDATE cart SET quantity = ? WHERE id = ?',
+                            [newQuantity, existing.id]
+                        );
+                    }
+                } else {
+                    await db.run(
+                        'INSERT INTO cart (user_id, product_id, quantity) VALUES (?, ?, ?)',
+                        [req.user.id, item.product_id, item.quantity]
+                    );
+                }
+            }
+        }
+        
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Reorder error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// Cancel order
+app.post('/order/:id/cancel', ensureAuthenticated, async (req, res) => {
+    try {
+        const order = await db.get(
+            'SELECT * FROM orders WHERE id = ? AND user_id = ? AND status = "pending"',
+            [req.params.id, req.user.id]
+        );
+        
+        if (!order) {
+            return res.status(400).json({ error: 'Order cannot be cancelled' });
+        }
+        
+        // Start transaction
+        await db.run('BEGIN TRANSACTION');
+        
+        await db.run(
+            'UPDATE orders SET status = "cancelled" WHERE id = ?',
+            [req.params.id]
+        );
+        
+        // Restore stock
+        const orderItems = await db.all(
+            'SELECT * FROM order_items WHERE order_id = ?',
+            [req.params.id]
+        );
+        
+        for (const item of orderItems) {
+            await db.run(
+                'UPDATE products SET stock = stock + ? WHERE id = ?',
+                [item.quantity, item.product_id]
+            );
+        }
+        
+        await db.run('COMMIT');
+        
+        // Log cancellation
+        await discordLogger.logOrderUpdate(req.user, order, 'pending', 'cancelled');
+        
+        res.json({ success: true });
+    } catch (error) {
+        await db.run('ROLLBACK');
+        console.error('Cancel order error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// Track order
+app.get('/track-order/:id', ensureAuthenticated, async (req, res) => {
+    try {
+        const order = await db.get(`
+            SELECT o.*, u.username 
+            FROM orders o 
+            JOIN users u ON o.user_id = u.id 
+            WHERE o.id = ? AND o.user_id = ?
+        `, [req.params.id, req.user.id]);
+        
+        if (!order) {
+            return res.status(404).render('error', { message: 'Order not found' });
+        }
+        
+        // Mock tracking data - you can integrate with actual courier API
+        const trackingStatus = [
+            { status: 'Order Placed', date: order.created_at, completed: true },
+            { status: 'Payment Confirmed', date: order.updated_at, completed: order.status !== 'pending' },
+            { status: 'Processing', date: null, completed: order.status === 'processing' || order.status === 'shipped' || order.status === 'delivered' || order.status === 'completed' },
+            { status: 'Shipped', date: null, completed: order.status === 'shipped' || order.status === 'delivered' || order.status === 'completed' },
+            { status: 'Out for Delivery', date: null, completed: order.status === 'delivered' || order.status === 'completed' },
+            { status: 'Delivered', date: null, completed: order.status === 'delivered' || order.status === 'completed' }
+        ];
+        
+        res.render('track-order', { user: req.user, order, trackingStatus });
+    } catch (error) {
+        console.error('Track order error:', error);
+        res.status(500).render('error', { message: 'Server error' });
+    }
+});
+
+// ==================== ADMIN ROUTES ====================
+
+// Admin dashboard
 app.get('/admin', ensureAdmin, async (req, res) => {
     try {
         // Log admin login
         await discordLogger.logAdminLogin(req.user);
 
+        const totalUsers = await db.get('SELECT COUNT(*) as count FROM users');
+        const totalOrders = await db.get('SELECT COUNT(*) as count FROM orders');
+        const totalProducts = await db.get('SELECT COUNT(*) as count FROM products');
+        const totalRevenue = await db.get('SELECT SUM(total_amount) as total FROM orders WHERE status = "completed"');
+        
+        const recentOrders = await db.all(`
+            SELECT o.*, u.username 
+            FROM orders o 
+            JOIN users u ON o.user_id = u.id 
+            ORDER BY o.created_at DESC 
+            LIMIT 10
+        `);
+        
+        const recentUsers = await db.all(`
+            SELECT * FROM users 
+            ORDER BY created_at DESC 
+            LIMIT 10
+        `);
+
         const stats = {
-            totalUsers: await db.get('SELECT COUNT(*) as count FROM users'),
-            totalOrders: await db.get('SELECT COUNT(*) as count FROM orders'),
-            totalProducts: await db.get('SELECT COUNT(*) as count FROM products'),
-            totalRevenue: await db.get('SELECT SUM(total_amount) as total FROM orders WHERE status = "completed"'),
-            recentOrders: await db.all(`
-                SELECT o.*, u.username 
-                FROM orders o 
-                JOIN users u ON o.user_id = u.id 
-                ORDER BY o.created_at DESC 
-                LIMIT 10
-            `),
-            recentUsers: await db.all(`
-                SELECT * FROM users 
-                ORDER BY created_at DESC 
-                LIMIT 10
-            `)
+            totalUsers,
+            totalOrders,
+            totalProducts,
+            totalRevenue,
+            recentOrders,
+            recentUsers
         };
 
         res.render('admin/dashboard', { user: req.user, stats });
@@ -525,6 +930,7 @@ app.get('/admin', ensureAdmin, async (req, res) => {
     }
 });
 
+// Admin users page
 app.get('/admin/users', ensureAdmin, async (req, res) => {
     try {
         const users = await db.all(`
@@ -542,6 +948,7 @@ app.get('/admin/users', ensureAdmin, async (req, res) => {
     }
 });
 
+// Ban/unban user
 app.post('/admin/users/:userId/ban', ensureAdmin, async (req, res) => {
     try {
         const targetUser = await db.get('SELECT * FROM users WHERE id = ?', [req.params.userId]);
@@ -565,6 +972,7 @@ app.post('/admin/users/:userId/ban', ensureAdmin, async (req, res) => {
     }
 });
 
+// Admin products page
 app.get('/admin/products', ensureAdmin, async (req, res) => {
     try {
         const products = await db.all('SELECT * FROM products ORDER BY created_at DESC');
@@ -583,6 +991,7 @@ app.get('/admin/products', ensureAdmin, async (req, res) => {
     }
 });
 
+// Add product
 app.post('/admin/products', ensureAdmin, async (req, res) => {
     try {
         const { name, description, price, category, brand, stock } = req.body;
@@ -591,7 +1000,7 @@ app.post('/admin/products', ensureAdmin, async (req, res) => {
         // Handle image upload
         if (req.files && req.files.image) {
             const file = req.files.image;
-            const fileName = `product_${Date.now()}_${file.name}`;
+            const fileName = `product_${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, '')}`;
             const uploadPath = path.join(__dirname, 'public/uploads', fileName);
             
             await file.mv(uploadPath);
@@ -616,6 +1025,7 @@ app.post('/admin/products', ensureAdmin, async (req, res) => {
     }
 });
 
+// Edit product
 app.post('/admin/products/:id/edit', ensureAdmin, async (req, res) => {
     try {
         const { name, description, price, category, brand, stock } = req.body;
@@ -624,7 +1034,7 @@ app.post('/admin/products/:id/edit', ensureAdmin, async (req, res) => {
         let imageUrl = oldProduct.image_url;
         if (req.files && req.files.image) {
             const file = req.files.image;
-            const fileName = `product_${Date.now()}_${file.name}`;
+            const fileName = `product_${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, '')}`;
             const uploadPath = path.join(__dirname, 'public/uploads', fileName);
             
             await file.mv(uploadPath);
@@ -648,6 +1058,7 @@ app.post('/admin/products/:id/edit', ensureAdmin, async (req, res) => {
     }
 });
 
+// Delete product
 app.post('/admin/products/:id/delete', ensureAdmin, async (req, res) => {
     try {
         const product = await db.get('SELECT * FROM products WHERE id = ?', [req.params.id]);
@@ -665,6 +1076,7 @@ app.post('/admin/products/:id/delete', ensureAdmin, async (req, res) => {
     }
 });
 
+// Admin orders page
 app.get('/admin/orders', ensureAdmin, async (req, res) => {
     try {
         const orders = await db.all(`
@@ -682,6 +1094,7 @@ app.get('/admin/orders', ensureAdmin, async (req, res) => {
     }
 });
 
+// Update order status
 app.post('/admin/orders/:id/status', ensureAdmin, async (req, res) => {
     try {
         const { status } = req.body;
@@ -703,6 +1116,7 @@ app.post('/admin/orders/:id/status', ensureAdmin, async (req, res) => {
     }
 });
 
+// Backup database
 app.get('/admin/backup', ensureAdmin, async (req, res) => {
     try {
         const dbPath = path.join(__dirname, 'website.db');
@@ -727,6 +1141,7 @@ app.get('/admin/backup', ensureAdmin, async (req, res) => {
     }
 });
 
+// Restore database
 app.post('/admin/restore', ensureAdmin, async (req, res) => {
     try {
         if (!req.files || !req.files.database) {
@@ -754,9 +1169,51 @@ app.post('/admin/restore', ensureAdmin, async (req, res) => {
     }
 });
 
-// Auth Routes
+// ==================== API ROUTES ====================
+
+// Search API
+app.get('/api/search', async (req, res) => {
+    try {
+        const { q } = req.query;
+        
+        const products = await db.all(`
+            SELECT * FROM products 
+            WHERE name LIKE ? OR description LIKE ? 
+            LIMIT 10
+        `, [`%${q}%`, `%${q}%`]);
+        
+        res.json(products);
+    } catch (error) {
+        console.error('Search error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// Products API for infinite scroll
+app.get('/api/products', async (req, res) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = 12;
+        const offset = (page - 1) * limit;
+        
+        const products = await db.all(
+            'SELECT * FROM products ORDER BY created_at DESC LIMIT ? OFFSET ?',
+            [limit, offset]
+        );
+        
+        res.json({ products });
+    } catch (error) {
+        console.error('Products API error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// ==================== AUTH ROUTES ====================
+
+// Discord login
 app.get('/auth/discord', passport.authenticate('discord'));
 
+// Discord callback
 app.get('/auth/discord/callback', 
     passport.authenticate('discord', { 
         failureRedirect: '/',
@@ -769,11 +1226,19 @@ app.get('/auth/discord/callback',
     }
 );
 
+// Logout
 app.get('/logout', (req, res, next) => {
     req.logout(function(err) {
         if (err) { return next(err); }
         res.redirect('/');
     });
+});
+
+// ==================== ERROR HANDLING ====================
+
+// 404 handler
+app.use((req, res) => {
+    res.status(404).render('error', { message: 'Page not found' });
 });
 
 // Error handling middleware
@@ -783,8 +1248,11 @@ app.use((err, req, res, next) => {
     res.status(500).render('error', { message: 'Something went wrong!' });
 });
 
-// Start server
+// ==================== START SERVER ====================
+
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
     discordLogger.logSystem(`Server started on port ${PORT}`, 'info');
 });
+
+module.exports = app;

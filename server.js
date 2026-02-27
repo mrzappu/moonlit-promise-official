@@ -199,8 +199,8 @@ app.get('/shop', async (req, res) => {
         const totalCount = await db.get(countQuery, countParams);
         const totalPages = Math.ceil(totalCount.count / limit);
         
-        const categories = await db.all('SELECT DISTINCT category FROM products');
-        const brands = await db.all('SELECT DISTINCT brand FROM products');
+        const categories = await db.all('SELECT DISTINCT category FROM products WHERE category IS NOT NULL AND category != ""');
+        const brands = await db.all('SELECT DISTINCT brand FROM products WHERE brand IS NOT NULL AND brand != ""');
 
         res.render('shop', { 
             user: req.user || null, 
@@ -1035,18 +1035,38 @@ app.post('/admin/users/:userId/ban', ensureAdmin, async (req, res) => {
     }
 });
 
+// ==================== FIXED ADMIN PRODUCTS ROUTE ====================
 // Admin products page
 app.get('/admin/products', ensureAdmin, async (req, res) => {
     try {
         const products = await db.all('SELECT * FROM products ORDER BY created_at DESC');
-        const categories = await db.all('SELECT DISTINCT category FROM products');
-        const brands = await db.all('SELECT DISTINCT brand FROM products');
+        
+        // Get distinct categories and brands from database
+        const categories = await db.all('SELECT DISTINCT category FROM products WHERE category IS NOT NULL AND category != ""');
+        const brands = await db.all('SELECT DISTINCT brand FROM products WHERE brand IS NOT NULL AND brand != ""');
+        
+        // Default options if database has no categories/brands
+        const defaultCategories = [
+            { category: 'T-Shirts' },
+            { category: 'Hoodies' },
+            { category: 'Sports Wear' },
+            { category: 'Esports' },
+            { category: 'Sticker Printed' }
+        ];
+        
+        const defaultBrands = [
+            { brand: 'Adidas' },
+            { brand: 'Puma' },
+            { brand: 'Under Armour' },
+            { brand: 'New Balance' },
+            { brand: 'Custom' }
+        ];
         
         res.render('admin/products', { 
             user: req.user, 
             products,
-            categories,
-            brands
+            categories: categories.length > 0 ? categories : defaultCategories,
+            brands: brands.length > 0 ? brands : defaultBrands
         });
     } catch (error) {
         console.error('Admin products error:', error);

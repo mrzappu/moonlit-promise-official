@@ -18,6 +18,7 @@ class DiscordLogger {
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 10;
         this.reconnectDelay = 5000; // 5 seconds
+        this.messageQueue = []; // Queue messages until bot is ready
         
         this.channels = {
             login: process.env.DISCORD_LOGIN_CHANNEL,
@@ -59,6 +60,9 @@ class DiscordLogger {
                 this.ready = true;
                 this.reconnectAttempts = 0;
                 
+                // Process queued messages
+                this.processQueue();
+                
                 // Log startup to system channel
                 this.logSystem('Discord bot connected successfully', 'success');
             });
@@ -67,7 +71,7 @@ class DiscordLogger {
                 console.error('❌ Discord client error:', error);
                 this.ready = false;
                 
-                // Log error to error channel
+                // Log error to error channel (if ready)
                 this.logError(error, { location: 'discord_client' });
             });
 
@@ -128,9 +132,37 @@ class DiscordLogger {
         this.reconnectDelay = Math.min(this.reconnectDelay * 1.5, 30000); // Max 30 seconds
     }
 
+    // Process queued messages when bot becomes ready
+    async processQueue() {
+        if (this.messageQueue.length > 0) {
+            console.log(`📨 Processing ${this.messageQueue.length} queued messages...`);
+            
+            for (const queued of this.messageQueue) {
+                try {
+                    await this.sendToChannel(queued.channelId, queued.message, queued.embed, queued.file);
+                    // Small delay between messages to avoid rate limits
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                } catch (error) {
+                    console.error('Error sending queued message:', error);
+                }
+            }
+            
+            this.messageQueue = [];
+            console.log('✅ Queue processed');
+        }
+    }
+
     async sendToChannel(channelId, message, embed = null, file = null) {
+        // If bot is not ready, queue the message
         if (!this.ready) {
-            console.warn('⚠️ Discord bot not ready. Message not sent:', message.substring(0, 50));
+            console.log(`📝 Queueing message (bot not ready): ${message.substring(0, 50)}...`);
+            this.messageQueue.push({ channelId, message, embed, file });
+            
+            // If this is the first queued message and bot is initializing, log it
+            if (this.messageQueue.length === 1) {
+                console.log('⏳ Bot initializing - messages will be sent when ready');
+            }
+            
             return;
         }
 
@@ -559,9 +591,20 @@ class DiscordLogger {
             [],
             `Type: ${type}`
         );
-        await this.sendToChannel(this.channels.system, '🔧 **System**', embed);
         
-        // Also log to console
+        // Only send if bot is ready, otherwise queue
+        if (this.ready) {
+            await this.sendToChannel(this.channels.system, '🔧 **System**', embed);
+        } else {
+            console.log(`📝 Queueing system message (bot not ready): ${message}`);
+            this.messageQueue.push({ 
+                channelId: this.channels.system, 
+                message: '🔧 **System**', 
+                embed 
+            });
+        }
+        
+        // Always log to console
         console.log(`[System/${type}] ${message}`);
     }
 
@@ -590,7 +633,8 @@ class DiscordLogger {
                 id: this.client.user.id
             } : null,
             guilds: this.client.guilds.cache.size,
-            reconnectAttempts: this.reconnectAttempts
+            reconnectAttempts: this.reconnectAttempts,
+            queuedMessages: this.messageQueue.length
         };
     }
 }

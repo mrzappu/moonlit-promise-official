@@ -125,7 +125,10 @@ function ensureAdmin(req, res, next) {
     if (req.isAuthenticated() && req.user.is_admin) {
         return next();
     }
-    res.status(403).render('error', { message: 'Access denied. Admin only.' });
+    res.status(403).render('error', { 
+        message: 'Access denied. Admin only.',
+        user: req.user || null 
+    });
 }
 
 // ==================== PUBLIC ROUTES ====================
@@ -133,15 +136,27 @@ function ensureAdmin(req, res, next) {
 // Home page
 app.get('/', async (req, res) => {
     try {
+        if (!db) {
+            // If database isn't ready yet, show a loading page or simple template
+            return res.render('index', { 
+                user: req.user || null, 
+                featuredProducts: [],
+                brands: ['Adidas', 'Puma', 'Under Armour', 'New Balance']
+            });
+        }
+        
         const featuredProducts = await db.all('SELECT * FROM products ORDER BY RANDOM() LIMIT 8');
         res.render('index', { 
-            user: req.user, 
+            user: req.user || null, 
             featuredProducts,
             brands: ['Adidas', 'Puma', 'Under Armour', 'New Balance']
         });
     } catch (error) {
         console.error('Home page error:', error);
-        res.status(500).render('error', { message: 'Server error' });
+        res.status(500).render('error', { 
+            message: 'Server error',
+            user: req.user || null 
+        });
     }
 });
 
@@ -188,7 +203,7 @@ app.get('/shop', async (req, res) => {
         const brands = await db.all('SELECT DISTINCT brand FROM products');
 
         res.render('shop', { 
-            user: req.user, 
+            user: req.user || null, 
             products, 
             categories, 
             brands,
@@ -198,7 +213,10 @@ app.get('/shop', async (req, res) => {
         });
     } catch (error) {
         console.error('Shop page error:', error);
-        res.status(500).render('error', { message: 'Server error' });
+        res.status(500).render('error', { 
+            message: 'Server error',
+            user: req.user || null 
+        });
     }
 });
 
@@ -207,7 +225,10 @@ app.get('/product/:id', async (req, res) => {
     try {
         const product = await db.get('SELECT * FROM products WHERE id = ?', [req.params.id]);
         if (!product) {
-            return res.status(404).render('error', { message: 'Product not found' });
+            return res.status(404).render('error', { 
+                message: 'Product not found',
+                user: req.user || null 
+            });
         }
 
         // Log product view
@@ -220,16 +241,19 @@ app.get('/product/:id', async (req, res) => {
             [product.category, product.id]
         );
 
-        res.render('product', { user: req.user, product, relatedProducts });
+        res.render('product', { user: req.user || null, product, relatedProducts });
     } catch (error) {
         console.error('Product page error:', error);
-        res.status(500).render('error', { message: 'Server error' });
+        res.status(500).render('error', { 
+            message: 'Server error',
+            user: req.user || null 
+        });
     }
 });
 
 // Terms page
 app.get('/terms', (req, res) => {
-    res.render('terms', { user: req.user });
+    res.render('terms', { user: req.user || null });
 });
 
 // ==================== CART ROUTES ====================
@@ -266,7 +290,10 @@ app.get('/cart', ensureAuthenticated, async (req, res) => {
         });
     } catch (error) {
         console.error('Cart page error:', error);
-        res.status(500).render('error', { message: 'Server error' });
+        res.status(500).render('error', { 
+            message: 'Server error',
+            user: req.user || null 
+        });
     }
 });
 
@@ -477,7 +504,10 @@ app.get('/checkout', ensureAuthenticated, async (req, res) => {
         });
     } catch (error) {
         console.error('Checkout page error:', error);
-        res.status(500).render('error', { message: 'Server error' });
+        res.status(500).render('error', { 
+            message: 'Server error',
+            user: req.user || null 
+        });
     }
 });
 
@@ -586,7 +616,10 @@ app.post('/checkout/process', ensureAuthenticated, async (req, res) => {
         await db.run('ROLLBACK');
         console.error('Checkout process error:', error);
         await discordLogger.logError(error, { location: 'checkout', user: req.user });
-        res.status(500).render('error', { message: 'Server error' });
+        res.status(500).render('error', { 
+            message: 'Server error',
+            user: req.user || null 
+        });
     }
 });
 
@@ -601,7 +634,10 @@ app.get('/order-confirmation/:id', ensureAuthenticated, async (req, res) => {
         `, [req.params.id, req.user.id]);
 
         if (!order) {
-            return res.status(404).render('error', { message: 'Order not found' });
+            return res.status(404).render('error', { 
+                message: 'Order not found',
+                user: req.user || null 
+            });
         }
 
         const orderItems = await db.all(`
@@ -614,7 +650,10 @@ app.get('/order-confirmation/:id', ensureAuthenticated, async (req, res) => {
         res.render('order-confirmation', { user: req.user, order, orderItems });
     } catch (error) {
         console.error('Order confirmation error:', error);
-        res.status(500).render('error', { message: 'Server error' });
+        res.status(500).render('error', { 
+            message: 'Server error',
+            user: req.user || null 
+        });
     }
 });
 
@@ -652,7 +691,10 @@ app.get('/profile', ensureAuthenticated, async (req, res) => {
         });
     } catch (error) {
         console.error('Profile page error:', error);
-        res.status(500).render('error', { message: 'Server error' });
+        res.status(500).render('error', { 
+            message: 'Server error',
+            user: req.user || null 
+        });
     }
 });
 
@@ -727,7 +769,10 @@ app.get('/history', ensureAuthenticated, async (req, res) => {
         });
     } catch (error) {
         console.error('History page error:', error);
-        res.status(500).render('error', { message: 'Server error' });
+        res.status(500).render('error', { 
+            message: 'Server error',
+            user: req.user || null 
+        });
     }
 });
 
@@ -742,7 +787,10 @@ app.get('/order/:id', ensureAuthenticated, async (req, res) => {
         `, [req.params.id, req.user.id]);
         
         if (!order) {
-            return res.status(404).render('error', { message: 'Order not found' });
+            return res.status(404).render('error', { 
+                message: 'Order not found',
+                user: req.user || null 
+            });
         }
         
         const orderItems = await db.all(`
@@ -760,7 +808,10 @@ app.get('/order/:id', ensureAuthenticated, async (req, res) => {
         res.render('order-details', { user: req.user, order, orderItems, payment });
     } catch (error) {
         console.error('Order details error:', error);
-        res.status(500).render('error', { message: 'Server error' });
+        res.status(500).render('error', { 
+            message: 'Server error',
+            user: req.user || null 
+        });
     }
 });
 
@@ -867,7 +918,10 @@ app.get('/track-order/:id', ensureAuthenticated, async (req, res) => {
         `, [req.params.id, req.user.id]);
         
         if (!order) {
-            return res.status(404).render('error', { message: 'Order not found' });
+            return res.status(404).render('error', { 
+                message: 'Order not found',
+                user: req.user || null 
+            });
         }
         
         // Mock tracking data - you can integrate with actual courier API
@@ -883,7 +937,10 @@ app.get('/track-order/:id', ensureAuthenticated, async (req, res) => {
         res.render('track-order', { user: req.user, order, trackingStatus });
     } catch (error) {
         console.error('Track order error:', error);
-        res.status(500).render('error', { message: 'Server error' });
+        res.status(500).render('error', { 
+            message: 'Server error',
+            user: req.user || null 
+        });
     }
 });
 
@@ -926,7 +983,10 @@ app.get('/admin', ensureAdmin, async (req, res) => {
         res.render('admin/dashboard', { user: req.user, stats });
     } catch (error) {
         console.error('Admin dashboard error:', error);
-        res.status(500).render('error', { message: 'Server error' });
+        res.status(500).render('error', { 
+            message: 'Server error',
+            user: req.user || null 
+        });
     }
 });
 
@@ -944,7 +1004,10 @@ app.get('/admin/users', ensureAdmin, async (req, res) => {
         res.render('admin/users', { user: req.user, users });
     } catch (error) {
         console.error('Admin users error:', error);
-        res.status(500).render('error', { message: 'Server error' });
+        res.status(500).render('error', { 
+            message: 'Server error',
+            user: req.user || null 
+        });
     }
 });
 
@@ -987,7 +1050,10 @@ app.get('/admin/products', ensureAdmin, async (req, res) => {
         });
     } catch (error) {
         console.error('Admin products error:', error);
-        res.status(500).render('error', { message: 'Server error' });
+        res.status(500).render('error', { 
+            message: 'Server error',
+            user: req.user || null 
+        });
     }
 });
 
@@ -1021,7 +1087,10 @@ app.post('/admin/products', ensureAdmin, async (req, res) => {
         res.redirect('/admin/products');
     } catch (error) {
         console.error('Add product error:', error);
-        res.status(500).render('error', { message: 'Server error' });
+        res.status(500).render('error', { 
+            message: 'Server error',
+            user: req.user || null 
+        });
     }
 });
 
@@ -1054,7 +1123,10 @@ app.post('/admin/products/:id/edit', ensureAdmin, async (req, res) => {
         res.redirect('/admin/products');
     } catch (error) {
         console.error('Edit product error:', error);
-        res.status(500).render('error', { message: 'Server error' });
+        res.status(500).render('error', { 
+            message: 'Server error',
+            user: req.user || null 
+        });
     }
 });
 
@@ -1090,7 +1162,10 @@ app.get('/admin/orders', ensureAdmin, async (req, res) => {
         res.render('admin/orders', { user: req.user, orders });
     } catch (error) {
         console.error('Admin orders error:', error);
-        res.status(500).render('error', { message: 'Server error' });
+        res.status(500).render('error', { 
+            message: 'Server error',
+            user: req.user || null 
+        });
     }
 });
 
@@ -1238,14 +1313,20 @@ app.get('/logout', (req, res, next) => {
 
 // 404 handler
 app.use((req, res) => {
-    res.status(404).render('error', { message: 'Page not found' });
+    res.status(404).render('error', { 
+        message: 'Page not found',
+        user: req.user || null
+    });
 });
 
 // Error handling middleware
 app.use((err, req, res, next) => {
     console.error(err.stack);
     discordLogger.logError(err, { location: req.path, user: req.user });
-    res.status(500).render('error', { message: 'Something went wrong!' });
+    res.status(500).render('error', { 
+        message: 'Something went wrong!',
+        user: req.user || null
+    });
 });
 
 // ==================== START SERVER ====================

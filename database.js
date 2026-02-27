@@ -60,6 +60,7 @@ async function setupDatabase() {
             payment_method TEXT,
             payment_proof TEXT,
             shipping_address TEXT,
+            phone TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(id)
@@ -84,6 +85,7 @@ async function setupDatabase() {
             payment_proof TEXT,
             status TEXT,
             transaction_id TEXT,
+            upi_transaction_id TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (order_id) REFERENCES orders(id),
             FOREIGN KEY (user_id) REFERENCES users(id)
@@ -116,6 +118,24 @@ async function setupDatabase() {
             ('Esports', 'Custom'),
             ('Sticker Printed', 'Custom');
     `);
+
+    // Check if phone column exists in orders table, if not add it
+    const tableInfo = await db.all("PRAGMA table_info(orders)");
+    const hasPhone = tableInfo.some(col => col.name === 'phone');
+    
+    if (!hasPhone) {
+        await db.exec("ALTER TABLE orders ADD COLUMN phone TEXT;");
+        console.log('Added phone column to orders table');
+    }
+
+    // Check if upi_transaction_id column exists in payments table
+    const paymentsInfo = await db.all("PRAGMA table_info(payments)");
+    const hasUpiTxnId = paymentsInfo.some(col => col.name === 'upi_transaction_id');
+    
+    if (!hasUpiTxnId) {
+        await db.exec("ALTER TABLE payments ADD COLUMN upi_transaction_id TEXT;");
+        console.log('Added upi_transaction_id column to payments table');
+    }
 
     // Insert sample products
     const sampleProducts = [

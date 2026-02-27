@@ -13,22 +13,43 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// ==================== CRITICAL: Set proper encoding for all responses ====================
+app.use((req, res, next) => {
+    res.setHeader('Content-Type', 'text/html; charset=UTF-8');
+    res.charset = 'utf-8';
+    next();
+});
+
 // Middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(express.static('public'));
+app.use(express.json({ type: 'application/json' }));
+app.use(express.urlencoded({ extended: true, type: 'application/x-www-form-urlencoded' }));
+app.use(express.static('public', {
+    setHeaders: (res, path) => {
+        if (path.endsWith('.css')) {
+            res.setHeader('Content-Type', 'text/css; charset=UTF-8');
+        } else if (path.endsWith('.js')) {
+            res.setHeader('Content-Type', 'application/javascript; charset=UTF-8');
+        }
+    }
+}));
+
 app.use(fileUpload({
     limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
-    createParentPath: true
+    createParentPath: true,
+    useTempFiles: true,
+    tempFileDir: '/tmp/'
 }));
 
 // Session setup
 app.use(session({
-    secret: process.env.SESSION_SECRET,
+    secret: process.env.SESSION_SECRET || 'default-secret-change-this',
     resave: false,
     saveUninitialized: false,
     cookie: {
-        maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
+        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax'
     }
 }));
 
@@ -44,9 +65,9 @@ app.set('views', path.join(__dirname, 'views'));
 let db;
 setupDatabase().then(database => {
     db = database;
-    console.log('Database connected');
+    console.log('✅ Database connected');
 }).catch(err => {
-    console.error('Database connection error:', err);
+    console.error('❌ Database connection error:', err);
 });
 
 // Passport Discord Strategy
@@ -57,6 +78,10 @@ passport.use(new DiscordStrategy({
     scope: ['identify', 'email']
 }, async (accessToken, refreshToken, profile, done) => {
     try {
+        if (!db) {
+            return done(new Error('Database not initialized'));
+        }
+
         // Check if user exists
         let user = await db.get('SELECT * FROM users WHERE discord_id = ?', [profile.id]);
         
@@ -91,7 +116,7 @@ passport.use(new DiscordStrategy({
         // Log activity
         await db.run(
             'INSERT INTO user_activity (user_id, action, ip_address) VALUES (?, ?, ?)',
-            [user.id, 'login', null]
+            [user.id, 'login', req.ip]
         );
 
         return done(null, user);
@@ -119,11 +144,12 @@ function ensureAuthenticated(req, res, next) {
     if (req.isAuthenticated()) {
         return next();
     }
+    req.session.returnTo = req.originalUrl;
     res.redirect('/');
 }
 
 function ensureAdmin(req, res, next) {
-    if (req.isAuthenticated() && req.user.is_admin) {
+    if (req.isAuthenticated() && req.user && req.user.is_admin) {
         return next();
     }
     res.status(403).render('error', { 
@@ -133,6 +159,11 @@ function ensureAdmin(req, res, next) {
 }
 
 // ==================== PUBLIC ROUTES ====================
+
+// Test route
+app.get('/test', (req, res) => {
+    res.send('<h1>Test Page</h1><p>If you see this, encoding is working correctly!</p>');
+});
 
 // Home page
 app.get('/', async (req, res) => {
@@ -148,7 +179,7 @@ app.get('/', async (req, res) => {
         const featuredProducts = await db.all('SELECT * FROM products ORDER BY RANDOM() LIMIT 8');
         res.render('index', { 
             user: req.user || null, 
-            featuredProducts,
+            featuredProducts: featuredProducts || [],
             brands: ['Adidas', 'Puma', 'Under Armour', 'New Balance']
         });
     } catch (error) {
@@ -197,19 +228,19 @@ app.get('/shop', async (req, res) => {
 
         const products = await db.all(query, params);
         const totalCount = await db.get(countQuery, countParams);
-        const totalPages = Math.ceil(totalCount.count / limit);
+        const totalPages = Math.ceil((totalCount?.count || 0) / limit);
         
         const categories = await db.all('SELECT DISTINCT category FROM products WHERE category IS NOT NULL AND category != ""');
         const brands = await db.all('SELECT DISTINCT brand FROM products WHERE brand IS NOT NULL AND brand != ""');
 
         res.render('shop', { 
             user: req.user || null, 
-            products, 
-            categories, 
-            brands,
+            products: products || [], 
+            categories: categories || [], 
+            brands: brands || [],
             filters: { category, brand, search },
             currentPage: page,
-            totalPages
+            totalPages: totalPages || 1
         });
     } catch (error) {
         console.error('Shop page error:', error);
@@ -240,7 +271,11 @@ app.get('/product/:id', async (req, res) => {
             [product.category, product.id]
         );
 
-        res.render('product', { user: req.user || null, product, relatedProducts });
+        res.render('product', { 
+            user: req.user || null, 
+            product, 
+            relatedProducts: relatedProducts || [] 
+        });
     } catch (error) {
         console.error('Product page error:', error);
         res.status(500).render('error', { 
@@ -280,11 +315,11 @@ app.get('/cart', ensureAuthenticated, async (req, res) => {
 
         res.render('cart', { 
             user: req.user, 
-            cartItems, 
-            subtotal,
-            tax,
-            discount,
-            total
+            cartItems: cartItems || [], 
+            subtotal: subtotal || 0,
+            tax: tax || 0,
+            discount: discount || 0,
+            total: total || 0
         });
     } catch (error) {
         console.error('Cart page error:', error);
@@ -414,7 +449,7 @@ app.get('/cart/count', ensureAuthenticated, async (req, res) => {
             'SELECT SUM(quantity) as count FROM cart WHERE user_id = ?',
             [req.user.id]
         );
-        res.json({ count: result.count || 0 });
+        res.json({ count: result?.count || 0 });
     } catch (error) {
         console.error('Cart count error:', error);
         res.json({ count: 0 });
@@ -499,14 +534,14 @@ app.get('/checkout', ensureAuthenticated, async (req, res) => {
 
         res.render('checkout', { 
             user: req.user, 
-            cartItems, 
-            subtotal,
-            tax,
-            discount,
-            total,
-            qrCodeDataUrl,
-            upiId,
-            tempOrderId,
+            cartItems: cartItems || [], 
+            subtotal: subtotal || 0,
+            tax: tax || 0,
+            discount: discount || 0,
+            total: total || 0,
+            qrCodeDataUrl: qrCodeDataUrl || null,
+            upiId: upiId,
+            tempOrderId: tempOrderId,
             paymentMethods: ['UPI', 'Paytm', 'Google Pay', 'QR Code']
         });
     } catch (error) {
@@ -680,7 +715,7 @@ app.get('/order-confirmation/:id', ensureAuthenticated, async (req, res) => {
             WHERE oi.order_id = ?
         `, [req.params.id]);
 
-        res.render('order-confirmation', { user: req.user, order, orderItems });
+        res.render('order-confirmation', { user: req.user, order, orderItems: orderItems || [] });
     } catch (error) {
         console.error('Order confirmation error:', error);
         res.status(500).render('error', { 
@@ -717,9 +752,9 @@ app.get('/profile', ensureAuthenticated, async (req, res) => {
 
         res.render('profile', { 
             user: req.user, 
-            stats: orderStats,
-            orders: recentOrders,
-            recentActivity 
+            stats: orderStats || { total_orders: 0, total_spent: 0 },
+            orders: recentOrders || [],
+            recentActivity: recentActivity || [] 
         });
     } catch (error) {
         console.error('Profile page error:', error);
@@ -787,13 +822,13 @@ app.get('/history', ensureAuthenticated, async (req, res) => {
             'SELECT COUNT(*) as count FROM orders WHERE user_id = ?',
             [req.user.id]
         );
-        const totalPages = Math.ceil(totalCount.count / limit);
+        const totalPages = Math.ceil((totalCount?.count || 0) / limit);
 
         res.render('history', { 
             user: req.user, 
-            orders,
+            orders: orders || [],
             currentPage: page,
-            totalPages
+            totalPages: totalPages || 1
         });
     } catch (error) {
         console.error('History page error:', error);
@@ -833,7 +868,12 @@ app.get('/order/:id', ensureAuthenticated, async (req, res) => {
             [req.params.id]
         );
         
-        res.render('order-details', { user: req.user, order, orderItems, payment });
+        res.render('order-details', { 
+            user: req.user, 
+            order, 
+            orderItems: orderItems || [],
+            payment: payment || null 
+        });
     } catch (error) {
         console.error('Order details error:', error);
         res.status(500).render('error', { 
@@ -993,12 +1033,12 @@ app.get('/admin', ensureAdmin, async (req, res) => {
         `);
 
         const stats = {
-            totalUsers,
-            totalOrders,
-            totalProducts,
-            totalRevenue,
-            recentOrders,
-            recentUsers
+            totalUsers: totalUsers || { count: 0 },
+            totalOrders: totalOrders || { count: 0 },
+            totalProducts: totalProducts || { count: 0 },
+            totalRevenue: totalRevenue || { total: 0 },
+            recentOrders: recentOrders || [],
+            recentUsers: recentUsers || []
         };
 
         res.render('admin/dashboard', { user: req.user, stats });
@@ -1022,7 +1062,7 @@ app.get('/admin/users', ensureAdmin, async (req, res) => {
             ORDER BY u.created_at DESC
         `);
 
-        res.render('admin/users', { user: req.user, users });
+        res.render('admin/users', { user: req.user, users: users || [] });
     } catch (error) {
         console.error('Admin users error:', error);
         res.status(500).render('error', { 
@@ -1081,7 +1121,7 @@ app.get('/admin/products', ensureAdmin, async (req, res) => {
         
         res.render('admin/products', { 
             user: req.user, 
-            products,
+            products: products || [],
             categories: categories.length > 0 ? categories : defaultCategories,
             brands: brands.length > 0 ? brands : defaultBrands
         });
@@ -1194,7 +1234,7 @@ app.get('/admin/orders', ensureAdmin, async (req, res) => {
             ORDER BY o.created_at DESC
         `);
 
-        res.render('admin/orders', { user: req.user, orders });
+        res.render('admin/orders', { user: req.user, orders: orders || [] });
     } catch (error) {
         console.error('Admin orders error:', error);
         res.status(500).render('error', { 
@@ -1225,7 +1265,6 @@ app.post('/admin/orders/:id/status', ensureAdmin, async (req, res) => {
     }
 });
 
-// ==================== NEW PAYMENT VERIFICATION ROUTE ====================
 // Verify payment proof
 app.post('/admin/orders/:id/verify-payment', ensureAdmin, async (req, res) => {
     try {
@@ -1404,7 +1443,7 @@ app.get('/api/search', async (req, res) => {
             LIMIT 10
         `, [`%${q}%`, `%${q}%`]);
         
-        res.json(products);
+        res.json(products || []);
     } catch (error) {
         console.error('Search error:', error);
         res.status(500).json({ error: 'Server error' });
@@ -1423,7 +1462,7 @@ app.get('/api/products', async (req, res) => {
             [limit, offset]
         );
         
-        res.json({ products });
+        res.json({ products: products || [] });
     } catch (error) {
         console.error('Products API error:', error);
         res.status(500).json({ error: 'Server error' });
@@ -1443,7 +1482,9 @@ app.get('/auth/discord/callback',
     }),
     async (req, res) => {
         await discordLogger.logLogin(req.user, req.ip);
-        res.redirect('/');
+        const returnTo = req.session.returnTo || '/';
+        delete req.session.returnTo;
+        res.redirect(returnTo);
     }
 );
 
@@ -1467,7 +1508,7 @@ app.use((req, res) => {
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-    console.error(err.stack);
+    console.error('❌ Server error:', err.stack);
     discordLogger.logError(err, { location: req.path, user: req.user });
     res.status(500).render('error', { 
         message: 'Something went wrong!',
@@ -1478,7 +1519,8 @@ app.use((err, req, res, next) => {
 // ==================== START SERVER ====================
 
 app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log(`✅ Server running on port ${PORT}`);
+    console.log(`🌍 Website: http://localhost:${PORT}`);
     discordLogger.logSystem(`Server started on port ${PORT}`, 'info');
 });
 

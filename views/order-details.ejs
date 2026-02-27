@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Details - SportsWear</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #e74c3c;
+            --accent-color: #3498db;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+        }
+        
+        .order-details {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            margin: 50px 0;
+        }
+        
+        .order-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        
+        .order-number {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+        
+        .order-status {
+            padding: 8px 20px;
+            border-radius: 25px;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .info-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+        }
+        
+        .info-label {
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 5px;
+        }
+        
+        .info-value {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+        
+        .product-table {
+            width: 100%;
+            margin: 30px 0;
+        }
+        
+        .product-table th {
+            background: var(--primary-color);
+            color: white;
+            padding: 12px;
+        }
+        
+        .product-table td {
+            padding: 15px 12px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .product-image {
+            width: 60px;
+            height: 60px;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .product-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .payment-proof {
+            max-width: 300px;
+            margin: 20px 0;
+        }
+        
+        .payment-proof img {
+            width: 100%;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+        
+        .total-section {
+            text-align: right;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px solid #f0f0f0;
+        }
+        
+        .total-amount {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--secondary-color);
+        }
+    </style>
+</head>
+<body>
+    <!-- Your navigation here -->
+    
+    <div class="container">
+        <div class="order-details">
+            <div class="order-header">
+                <h1 class="order-number">Order #<%= order.order_number %></h1>
+                <span class="order-status status-<%= order.status %>">
+                    <%= order.status.toUpperCase() %>
+                </span>
+            </div>
+            
+            <div class="info-grid">
+                <div class="info-card">
+                    <div class="info-label">Order Date</div>
+                    <div class="info-value"><%= new Date(order.created_at).toLocaleString() %></div>
+                </div>
+                <div class="info-card">
+                    <div class="info-label">Payment Method</div>
+                    <div class="info-value"><%= order.payment_method %></div>
+                </div>
+                <div class="info-card">
+                    <div class="info-label">Shipping Address</div>
+                    <div class="info-value"><%= order.shipping_address || 'Not provided' %></div>
+                </div>
+            </div>
+            
+            <% if (payment && payment.payment_proof) { %>
+                <div class="payment-proof">
+                    <h5>Payment Proof</h5>
+                    <img src="<%= payment.payment_proof %>" alt="Payment Proof" onclick="window.open(this.src)">
+                </div>
+            <% } %>
+            
+            <h4>Order Items</h4>
+            <table class="product-table">
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>Price</th>
+                        <th>Quantity</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% orderItems.forEach(item => { %>
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="product-image me-3">
+                                        <img src="<%= item.image_url %>" alt="<%= item.name %>">
+                                    </div>
+                                    <div>
+                                        <strong><%= item.name %></strong>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>₹<%= item.price %></td>
+                            <td><%= item.quantity %></td>
+                            <td><strong>₹<%= item.price * item.quantity %></strong></td>
+                        </tr>
+                    <% }); %>
+                </tbody>
+            </table>
+            
+            <div class="total-section">
+                <h4 class="total-amount">Total: ₹<%= order.total_amount %></h4>
+            </div>
+            
+            <div class="text-center mt-4">
+                <a href="/history" class="btn btn-primary">Back to Orders</a>
+                <% if(order.status === 'pending') { %>
+                    <button class="btn btn-danger ms-2" onclick="cancelOrder(<%= order.id %>)">Cancel Order</button>
+                <% } %>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function cancelOrder(orderId) {
+            if (confirm('Are you sure you want to cancel this order?')) {
+                fetch(`/order/${orderId}/cancel`, { method: 'POST' })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) {
+                            location.reload();
+                        } else {
+                            alert('Failed to cancel order');
+                        }
+                    });
+            }
+        }
+    </script>
+</body>
+</html>

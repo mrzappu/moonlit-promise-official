@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sports Wear & Custom Apparel</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #e74c3c;
+            --accent-color: #3498db;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+        }
+        
+        .navbar {
+            background-color: var(--primary-color) !important;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .navbar-brand {
+            font-weight: 700;
+            font-size: 1.5rem;
+            color: white !important;
+        }
+        
+        .nav-link {
+            color: rgba(255,255,255,0.8) !important;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+        
+        .nav-link:hover {
+            color: white !important;
+        }
+        
+        .hero-section {
+            background: linear-gradient(135deg, var(--primary-color), #34495e);
+            color: white;
+            padding: 80px 0;
+            text-align: center;
+            margin-bottom: 50px;
+        }
+        
+        .hero-title {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+        }
+        
+        .hero-subtitle {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            margin-bottom: 30px;
+        }
+        
+        .brand-section {
+            background: white;
+            padding: 50px 0;
+            margin-bottom: 50px;
+        }
+        
+        .brand-logo {
+            text-align: center;
+            padding: 20px;
+            transition: transform 0.3s;
+        }
+        
+        .brand-logo:hover {
+            transform: scale(1.1);
+        }
+        
+        .brand-logo img {
+            max-width: 150px;
+            height: auto;
+            filter: grayscale(100%);
+            opacity: 0.7;
+            transition: all 0.3s;
+        }
+        
+        .brand-logo:hover img {
+            filter: grayscale(0);
+            opacity: 1;
+        }
+        
+        .product-card {
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+            margin-bottom: 30px;
+            height: 100%;
+        }
+        
+        .product-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.15);
+        }
+        
+        .product-image {
+            height: 300px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .product-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.5s;
+        }
+        
+        .product-card:hover .product-image img {
+            transform: scale(1.1);
+        }
+        
+        .product-badge {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: var(--secondary-color);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 25px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            z-index: 2;
+        }
+        
+        .product-info {
+            padding: 20px;
+        }
+        
+        .product-category {
+            color: var(--accent-color);
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+        
+        .product-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: var(--primary-color);
+        }
+        
+        .product-price {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--secondary-color);
+            margin-bottom: 15px;
+        }
+        
+        .btn-custom {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 25px;
+            border-radius: 25px;
+            font-weight: 600;
+            transition: all 0.3s;
+            width: 100%;
+        }
+        
+        .btn-custom:hover {
+            background: var(--secondary-color);
+            transform: translateY(-2px);
+        }
+        
+        .section-title {
+            text-align: center;
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 50px;
+            position: relative;
+        }
+        
+        .section-title:after {
+            content: '';
+            display: block;
+            width: 100px;
+            height: 4px;
+            background: var(--secondary-color);
+            margin: 20px auto;
+            border-radius: 2px;
+        }
+        
+        .footer {
+            background: var(--primary-color);
+            color: white;
+            padding: 50px 0 20px;
+            margin-top: 50px;
+        }
+        
+        .footer a {
+            color: rgba(255,255,255,0.8);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+        
+        .footer a:hover {
+            color: white;
+        }
+        
+        .discord-login {
+            background: #5865F2;
+            color: white;
+            border: none;
+            padding: 10px 25px;
+            border-radius: 25px;
+            font-weight: 600;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .discord-login:hover {
+            background: #4752c4;
+            transform: translateY(-2px);
+            color: white;
+        }
+        
+        .discord-login i {
+            font-size: 1.2rem;
+        }
+        
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: white;
+        }
+        
+        .user-avatar {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            border: 2px solid white;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark sticky-top">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-tshirt me-2"></i>SportsWear
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/shop">Shop</a>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="brandsDropdown" role="button" data-bs-toggle="dropdown">
+                            Brands
+                        </a>
+                        <ul class="dropdown-menu">
+                            <% brands.forEach(brand => { %>
+                                <li><a class="dropdown-item" href="/shop?brand=<%= brand %>"><%= brand %></a></li>
+                            <% }); %>
+                        </ul>
+                    </li>
+                    <% if (user && user.is_admin) { %>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/admin">Admin Panel</a>
+                        </li>
+                    <% } %>
+                </ul>
+                <ul class="navbar-nav">
+                    <% if (user) { %>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/cart">
+                                <i class="fas fa-shopping-cart"></i> Cart
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/history">
+                                <i class="fas fa-history"></i> Orders
+                            </a>
+                        </li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="profileDropdown" role="button" data-bs-toggle="dropdown">
+                                <div class="user-profile">
+                                    <% if (user.avatar) { %>
+                                        <img src="https://cdn.discordapp.com/avatars/<%= user.discord_id %>/<%= user.avatar %>.png" class="user-avatar">
+                                    <% } else { %>
+                                        <i class="fas fa-user-circle"></i>
+                                    <% } %>
+                                    <span><%= user.username %></span>
+                                </div>
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item" href="/profile"><i class="fas fa-user me-2"></i>Profile</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="/logout"><i class="fas fa-sign-out-alt me-2"></i>Logout</a></li>
+                            </ul>
+                        </li>
+                    <% } else { %>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/auth/discord">
+                                <button class="discord-login">
+                                    <i class="fab fa-discord"></i> Login with Discord
+                                </button>
+                            </a>
+                        </li>
+                    <% } %>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero-section">
+        <div class="container">
+            <h1 class="hero-title">Welcome to SportsWear</h1>
+            <p class="hero-subtitle">Your premier destination for Adidas, Puma, Under Armour, New Balance, and custom apparel including Hammper style and esports gear</p>
+            <a href="/shop" class="btn btn-custom btn-lg">Shop Now</a>
+        </div>
+    </section>
+
+    <!-- Brand Section -->
+    <section class="brand-section">
+        <div class="container">
+            <h2 class="section-title">Our Brands</h2>
+            <div class="row">
+                <div class="col-md-3 col-6 brand-logo">
+                    <a href="/shop?brand=Adidas">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/2/20/Adidas_Logo.svg" alt="Adidas">
+                    </a>
+                </div>
+                <div class="col-md-3 col-6 brand-logo">
+                    <a href="/shop?brand=Puma">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/8/88/Puma_AG.svg" alt="Puma">
+                    </a>
+                </div>
+                <div class="col-md-3 col-6 brand-logo">
+                    <a href="/shop?brand=Under Armour">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/2/24/Under_Armour_Logo.svg" alt="Under Armour">
+                    </a>
+                </div>
+                <div class="col-md-3 col-6 brand-logo">
+                    <a href="/shop?brand=New Balance">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/e/ea/New_Balance_logo.svg" alt="New Balance">
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Featured Products -->
+    <section class="container">
+        <h2 class="section-title">Featured Products</h2>
+        <div class="row">
+            <% featuredProducts.forEach(product => { %>
+                <div class="col-lg-3 col-md-4 col-sm-6">
+                    <div class="product-card">
+                        <div class="product-image">
+                            <span class="product-badge"><%= product.brand %></span>
+                            <img src="<%= product.image_url %>" alt="<%= product.name %>">
+                        </div>
+                        <div class="product-info">
+                            <div class="product-category"><%= product.category %></div>
+                            <h3 class="product-title"><%= product.name %></h3>
+                            <div class="product-price">₹<%= product.price %></div>
+                            <a href="/product/<%= product.id %>" class="btn btn-custom">View Details</a>
+                        </div>
+                    </div>
+                </div>
+            <% }); %>
+        </div>
+    </section>
+
+    <!-- Categories -->
+    <section class="container mt-5">
+        <h2 class="section-title">Shop by Category</h2>
+        <div class="row">
+            <div class="col-md-3 col-6 mb-4">
+                <a href="/shop?category=T-Shirts" class="text-decoration-none">
+                    <div class="card text-center p-4 category-card">
+                        <i class="fas fa-tshirt fa-3x mb-3" style="color: var(--primary-color);"></i>
+                        <h5>T-Shirts</h5>
+                    </div>
+                </a>
+            </div>
+            <div class="col-md-3 col-6 mb-4">
+                <a href="/shop?category=Hoodies" class="text-decoration-none">
+                    <div class="card text-center p-4 category-card">
+                        <i class="fas fa-tshirt fa-3x mb-3" style="color: var(--primary-color);"></i>
+                        <h5>Hoodies</h5>
+                    </div>
+                </a>
+            </div>
+            <div class="col-md-3 col-6 mb-4">
+                <a href="/shop?category=Sports Wear" class="text-decoration-none">
+                    <div class="card text-center p-4 category-card">
+                        <i class="fas fa-running fa-3x mb-3" style="color: var(--primary-color);"></i>
+                        <h5>Sports Wear</h5>
+                    </div>
+                </a>
+            </div>
+            <div class="col-md-3 col-6 mb-4">
+                <a href="/shop?category=Esports" class="text-decoration-none">
+                    <div class="card text-center p-4 category-card">
+                        <i class="fas fa-gamepad fa-3x mb-3" style="color: var(--primary-color);"></i>
+                        <h5>Esports</h5>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-4 mb-4">
+                    <h5>About Us</h5>
+                    <p>Your one-stop shop for premium sports wear and custom apparel. We bring you the best brands and unique designs.</p>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <h5>Quick Links</h5>
+                    <ul class="list-unstyled">
+                        <li><a href="/shop">Shop</a></li>
+                        <li><a href="/terms">Terms & Conditions</a></li>
+                        <li><a href="/privacy">Privacy Policy</a></li>
+                        <li><a href="/contact">Contact Us</a></li>
+                    </ul>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <h5>Contact Info</h5>
+                    <p><i class="fas fa-map-marker-alt me-2"></i> India</p>
+                    <p><i class="fas fa-envelope me-2"></i> support@sportswear.com</p>
+                    <p><i class="fas fa-phone me-2"></i> +91 1234567890</p>
+                </div>
+            </div>
+            <hr class="bg-light">
+            <div class="text-center">
+                <p>&copy; 2024 SportsWear. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/main.js"></script>
+</body>
+</html>

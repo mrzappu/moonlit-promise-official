@@ -1,4 +1,3 @@
-cat > package.json << 'EOF'
 {
   "name": "ecommerce-shop",
   "version": "1.0.0",
@@ -29,4 +28,3 @@ cat > package.json << 'EOF'
     "npm": ">=9.0.0"
   }
 }
-EOF

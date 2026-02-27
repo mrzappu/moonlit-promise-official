@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits } = require('discord.js');
+const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
 require('dotenv').config();
 
 class DiscordLogger {
@@ -50,7 +50,7 @@ class DiscordLogger {
         }
     }
 
-    async sendToChannel(channelId, message, embed = null) {
+    async sendToChannel(channelId, message, embed = null, file = null) {
         if (!this.ready) return;
 
         try {
@@ -60,6 +60,11 @@ class DiscordLogger {
                     content: message,
                     embeds: embed ? [embed] : []
                 };
+                
+                if (file) {
+                    content.files = [file];
+                }
+                
                 await channel.send(content);
             }
         } catch (error) {
@@ -68,16 +73,18 @@ class DiscordLogger {
     }
 
     createEmbed(title, description, color = 0x00ff00, fields = [], footer = null) {
-        const embed = {
-            title,
-            description,
-            color,
-            timestamp: new Date(),
-            fields
-        };
+        const embed = new EmbedBuilder()
+            .setTitle(title)
+            .setDescription(description)
+            .setColor(color)
+            .setTimestamp(new Date());
+        
+        if (fields.length > 0) {
+            embed.addFields(fields);
+        }
         
         if (footer) {
-            embed.footer = { text: footer };
+            embed.setFooter({ text: footer });
         }
         
         return embed;
@@ -282,37 +289,63 @@ class DiscordLogger {
 
     async logPaymentInit(user, payment) {
         const embed = this.createEmbed(
-            'Payment Initiated',
+            '💳 Payment Initiated',
             `Payment initiated by ${user.username}`,
             0xffaa00,
             [
-                { name: 'Order', value: payment.order_id, inline: true },
+                { name: 'Order ID', value: payment.order_id.toString(), inline: true },
                 { name: 'Amount', value: `₹${payment.amount}`, inline: true },
                 { name: 'Method', value: payment.payment_method, inline: true },
-                { name: 'User', value: user.username, inline: true }
+                { name: 'User', value: user.username, inline: true },
+                { name: 'Discord ID', value: user.discord_id, inline: true }
             ]
         );
         await this.sendToChannel(this.channels.paymentInit, '💳 **Payment Initiated**', embed);
     }
 
-    async logPaymentSuccess(user, payment, proofUrl = null) {
+    async logPaymentSuccess(user, payment, proofUrl = null, upiTransactionId = null) {
+        const fields = [
+            { name: 'Order ID', value: payment.order_id.toString(), inline: true },
+            { name: 'Amount', value: `₹${payment.amount}`, inline: true },
+            { name: 'Method', value: payment.payment_method, inline: true },
+            { name: 'User', value: user.username, inline: true },
+            { name: 'Discord ID', value: user.discord_id, inline: true },
+            { name: 'Date/Time', value: new Date().toLocaleString(), inline: false }
+        ];
+        
+        if (upiTransactionId) {
+            fields.push({ name: 'UPI Transaction ID', value: upiTransactionId, inline: false });
+        }
+        
         const embed = this.createEmbed(
-            'Payment Successful',
+            '✅ Payment Successful',
             `Payment completed by ${user.username}`,
             0x00ff00,
-            [
-                { name: 'Order', value: payment.order_id, inline: true },
-                { name: 'Amount', value: `₹${payment.amount}`, inline: true },
-                { name: 'Method', value: payment.payment_method, inline: true },
-                { name: 'User', value: user.username, inline: true },
-                { name: 'Date/Time', value: new Date().toLocaleString(), inline: false }
-            ]
+            fields
         );
         
         let message = `💰 **Payment Success**\n**User:** ${user.username} (${user.discord_id})\n**Amount:** ₹${payment.amount}\n**Method:** ${payment.payment_method}\n**Order:** ${payment.order_id}\n**Time:** ${new Date().toLocaleString()}`;
         
+        if (upiTransactionId) {
+            message += `\n**UPI Txn ID:** ${upiTransactionId}`;
+        }
+        
+        // If there's a proof file, send it as an attachment
         if (proofUrl) {
             message += `\n**Proof:** ${proofUrl}`;
+            
+            // If proofUrl is a local file path, we can try to send it as an attachment
+            try {
+                const filePath = proofUrl.startsWith('/uploads/') ? 
+                    path.join(__dirname, 'public', proofUrl) : null;
+                
+                if (filePath && require('fs').existsSync(filePath)) {
+                    await this.sendToChannel(this.channels.paymentSuccess, message, embed, filePath);
+                    return;
+                }
+            } catch (err) {
+                console.error('Error attaching payment proof:', err);
+            }
         }
         
         await this.sendToChannel(this.channels.paymentSuccess, message, embed);
@@ -320,11 +353,11 @@ class DiscordLogger {
 
     async logPaymentFailed(user, payment, reason) {
         const embed = this.createEmbed(
-            'Payment Failed',
+            '❌ Payment Failed',
             `Payment failed for ${user.username}`,
             0xff0000,
             [
-                { name: 'Order', value: payment.order_id, inline: true },
+                { name: 'Order', value: payment.order_id.toString(), inline: true },
                 { name: 'Amount', value: `₹${payment.amount}`, inline: true },
                 { name: 'Reason', value: reason, inline: false },
                 { name: 'User', value: user.username, inline: true }
@@ -335,11 +368,11 @@ class DiscordLogger {
 
     async logPaymentRefund(admin, payment, reason) {
         const embed = this.createEmbed(
-            'Payment Refunded',
+            '💸 Payment Refunded',
             `Payment refunded by admin ${admin.username}`,
             0xffaa00,
             [
-                { name: 'Order', value: payment.order_id, inline: true },
+                { name: 'Order', value: payment.order_id.toString(), inline: true },
                 { name: 'Amount', value: `₹${payment.amount}`, inline: true },
                 { name: 'Reason', value: reason, inline: false },
                 { name: 'Admin', value: admin.username, inline: true }
@@ -350,7 +383,7 @@ class DiscordLogger {
 
     async logAdminLogin(admin) {
         const embed = this.createEmbed(
-            'Admin Login',
+            '👑 Admin Login',
             `Admin ${admin.username} logged in`,
             0xffaa00,
             [
@@ -364,7 +397,7 @@ class DiscordLogger {
 
     async logAdminAction(admin, action, details) {
         const embed = this.createEmbed(
-            'Admin Action',
+            '⚡ Admin Action',
             `Admin action performed by ${admin.username}`,
             0xffaa00,
             [
@@ -378,7 +411,7 @@ class DiscordLogger {
 
     async logError(error, context = {}) {
         const embed = this.createEmbed(
-            'System Error',
+            '⚠️ System Error',
             `Error occurred in ${context.location || 'unknown'}`,
             0xff0000,
             [
@@ -399,7 +432,7 @@ class DiscordLogger {
         };
         
         const embed = this.createEmbed(
-            'System Notification',
+            '🔧 System Notification',
             message,
             colors[type] || 0x3498db
         );
@@ -408,7 +441,7 @@ class DiscordLogger {
 
     async logBackup(admin, filename, size) {
         const embed = this.createEmbed(
-            'Database Backup',
+            '💾 Database Backup',
             `Backup created by ${admin.username}`,
             0x00ff00,
             [

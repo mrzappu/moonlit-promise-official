@@ -487,7 +487,7 @@ app.get('/checkout', ensureAuthenticated, async (req, res) => {
         const tempOrderId = 'TEMP' + Date.now();
         
         // Create UPI payment link
-        const upiId = 'sportswear@okhdfcbank'; // Your UPI ID
+        const upiId = 'sportswear@okhdfcbank';
         const payeeName = 'SportsWear';
         const amount = total.toFixed(2);
         
@@ -1186,9 +1186,11 @@ app.get('/admin/orders', ensureAdmin, async (req, res) => {
     try {
         const orders = await db.all(`
             SELECT o.*, u.username, u.discord_id,
-                   (SELECT COUNT(*) FROM order_items WHERE order_id = o.id) as item_count
+                   (SELECT COUNT(*) FROM order_items WHERE order_id = o.id) as item_count,
+                   p.payment_proof, p.status as payment_status
             FROM orders o
             JOIN users u ON o.user_id = u.id
+            LEFT JOIN payments p ON o.id = p.order_id
             ORDER BY o.created_at DESC
         `);
 
@@ -1220,6 +1222,125 @@ app.post('/admin/orders/:id/status', ensureAdmin, async (req, res) => {
     } catch (error) {
         console.error('Update order status error:', error);
         res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// ==================== NEW PAYMENT VERIFICATION ROUTE ====================
+// Verify payment proof
+app.post('/admin/orders/:id/verify-payment', ensureAdmin, async (req, res) => {
+    try {
+        const { status, upiTransactionId } = req.body;
+        const order = await db.get('SELECT * FROM orders WHERE id = ?', [req.params.id]);
+        
+        if (!order) {
+            return res.status(404).json({ error: 'Order not found' });
+        }
+        
+        const payment = await db.get('SELECT * FROM payments WHERE order_id = ?', [req.params.id]);
+        const user = await db.get('SELECT * FROM users WHERE id = ?', [order.user_id]);
+        
+        if (status === 'completed') {
+            // Start transaction
+            await db.run('BEGIN TRANSACTION');
+            
+            // Update order status
+            await db.run(
+                'UPDATE orders SET status = "completed", updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+                [req.params.id]
+            );
+            
+            // Update payment status
+            await db.run(
+                'UPDATE payments SET status = "completed", upi_transaction_id = ? WHERE order_id = ?',
+                [upiTransactionId || null, req.params.id]
+            );
+            
+            await db.run('COMMIT');
+            
+            // Log payment success
+            const paymentData = {
+                order_id: order.id,
+                amount: payment.amount,
+                payment_method: payment.payment_method
+            };
+            await discordLogger.logPaymentSuccess(user, paymentData, payment.payment_proof, upiTransactionId);
+            await discordLogger.logOrderComplete(user, order);
+            await discordLogger.logAdminAction(req.user, 'Verified payment', 
+                `Order ${order.order_number} payment verified. Amount: ₹${payment.amount}`);
+            
+            res.json({ success: true, message: 'Payment verified and order completed' });
+            
+        } else if (status === 'failed') {
+            // Start transaction
+            await db.run('BEGIN TRANSACTION');
+            
+            // Reject payment
+            await db.run(
+                'UPDATE orders SET status = "cancelled", updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+                [req.params.id]
+            );
+            
+            await db.run(
+                'UPDATE payments SET status = "failed" WHERE order_id = ?',
+                [req.params.id]
+            );
+            
+            // Restore stock
+            const orderItems = await db.all(
+                'SELECT * FROM order_items WHERE order_id = ?',
+                [req.params.id]
+            );
+            
+            for (const item of orderItems) {
+                await db.run(
+                    'UPDATE products SET stock = stock + ? WHERE id = ?',
+                    [item.quantity, item.product_id]
+                );
+            }
+            
+            await db.run('COMMIT');
+            
+            await discordLogger.logPaymentFailed(user, payment, 'Payment proof rejected by admin');
+            await discordLogger.logAdminAction(req.user, 'Rejected payment', 
+                `Order ${order.order_number} payment rejected. Amount: ₹${payment.amount}`);
+            
+            res.json({ success: true, message: 'Payment rejected and order cancelled' });
+        } else {
+            res.status(400).json({ error: 'Invalid status' });
+        }
+    } catch (error) {
+        await db.run('ROLLBACK');
+        console.error('Payment verification error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// View payment proof (admin only)
+app.get('/admin/payment-proof/:orderId', ensureAdmin, async (req, res) => {
+    try {
+        const payment = await db.get('SELECT * FROM payments WHERE order_id = ?', [req.params.orderId]);
+        const order = await db.get('SELECT * FROM orders WHERE id = ?', [req.params.orderId]);
+        const user = await db.get('SELECT * FROM users WHERE id = ?', [order.user_id]);
+        
+        if (!payment || !payment.payment_proof) {
+            return res.status(404).render('error', { 
+                message: 'Payment proof not found',
+                user: req.user 
+            });
+        }
+        
+        res.render('admin/payment-proof', { 
+            user: req.user, 
+            payment, 
+            order, 
+            customer: user 
+        });
+    } catch (error) {
+        console.error('View payment proof error:', error);
+        res.status(500).render('error', { 
+            message: 'Server error',
+            user: req.user 
+        });
     }
 });
 

@@ -13,22 +13,8 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Security Headers
+// ==================== CRITICAL: Set proper encoding for all responses ====================
 app.use((req, res, next) => {
-    res.setHeader('X-Frame-Options', 'DENY');
-    res.setHeader('X-XSS-Protection', '1; mode=block');
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('Referrer-Policy', 'same-origin');
-    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
-    res.setHeader('Content-Security-Policy', 
-        "default-src 'self'; " +
-        "script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; " +
-        "style-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; " +
-        "img-src 'self' https: data:; " +
-        "font-src 'self' https://cdnjs.cloudflare.com; " +
-        "connect-src 'self'; " +
-        "frame-ancestors 'none';"
-    );
     res.setHeader('Content-Type', 'text/html; charset=UTF-8');
     res.charset = 'utf-8';
     next();
@@ -48,7 +34,7 @@ app.use(express.static('public', {
 }));
 
 app.use(fileUpload({
-    limits: { fileSize: 5 * 1024 * 1024 },
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
     createParentPath: true,
     useTempFiles: true,
     tempFileDir: '/tmp/'
@@ -56,20 +42,22 @@ app.use(fileUpload({
 
 // Session setup
 app.use(session({
-    secret: process.env.SESSION_SECRET || require('crypto').randomBytes(32).toString('hex'),
+    secret: process.env.SESSION_SECRET || 'default-secret-change-this',
     resave: false,
     saveUninitialized: false,
     cookie: {
-        maxAge: 30 * 24 * 60 * 60 * 1000,
+        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax'
     }
 }));
 
+// Passport setup
 app.use(passport.initialize());
 app.use(passport.session());
 
+// View engine
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
@@ -94,6 +82,7 @@ passport.use(new DiscordStrategy({
             return done(new Error('Database not initialized'));
         }
 
+        // Check if user exists
         let user = await db.get('SELECT * FROM users WHERE discord_id = ?', [profile.id]);
         
         if (user && user.is_banned) {
@@ -104,14 +93,18 @@ passport.use(new DiscordStrategy({
         const isAdmin = adminIds.includes(profile.id);
 
         if (!user) {
+            // Create new user
             const result = await db.run(
                 'INSERT INTO users (discord_id, username, email, avatar, is_admin) VALUES (?, ?, ?, ?, ?)',
                 [profile.id, profile.username, profile.email, profile.avatar, isAdmin]
             );
             
             user = await db.get('SELECT * FROM users WHERE id = ?', [result.lastID]);
+            
+            // Log registration
             await discordLogger.logRegister(user);
         } else {
+            // Update last login
             await db.run(
                 'UPDATE users SET last_login = CURRENT_TIMESTAMP, username = ?, email = ?, avatar = ?, is_admin = ? WHERE discord_id = ?',
                 [profile.username, profile.email, profile.avatar, isAdmin, profile.id]
@@ -120,6 +113,7 @@ passport.use(new DiscordStrategy({
             user = await db.get('SELECT * FROM users WHERE discord_id = ?', [profile.id]);
         }
 
+        // Log activity
         await db.run(
             'INSERT INTO user_activity (user_id, action, ip_address) VALUES (?, ?, ?)',
             [user.id, 'login', req.ip]
@@ -168,51 +162,31 @@ function ensureAdmin(req, res, next) {
 
 // Test route
 app.get('/test', (req, res) => {
-    res.send('<h1>Test Page</h1><p>If you see this, the server is working!</p>');
+    res.send('<h1>Test Page</h1><p>If you see this, encoding is working correctly!</p>');
 });
 
-// ==================== FIXED HOME PAGE ROUTE ====================
-// Home page - FIXED to pass brands to template
+// Home page
 app.get('/', async (req, res) => {
     try {
         if (!db) {
-            // Database not ready - show fallback
             return res.render('index', { 
                 user: req.user || null, 
                 featuredProducts: [],
-                brands: ['Adidas', 'Puma', 'Under Armour', 'New Balance', 'Custom']
+                brands: ['Adidas', 'Puma', 'Under Armour', 'New Balance']
             });
         }
         
-        // Get 8 random featured products
         const featuredProducts = await db.all('SELECT * FROM products ORDER BY RANDOM() LIMIT 8');
-        
-        // Get unique brands from database for the dropdown
-        const dbBrands = await db.all('SELECT DISTINCT brand FROM products WHERE brand IS NOT NULL AND brand != "" ORDER BY brand');
-        
-        // Create brand list - use database brands if available, otherwise use defaults
-        let brandList = [];
-        if (dbBrands && dbBrands.length > 0) {
-            brandList = dbBrands.map(b => b.brand);
-        } else {
-            brandList = ['Adidas', 'Puma', 'Under Armour', 'New Balance', 'Custom'];
-        }
-        
-        console.log('Home page loaded - Brands:', brandList); // Debug log
-        console.log('Featured products count:', featuredProducts ? featuredProducts.length : 0);
-        
         res.render('index', { 
             user: req.user || null, 
             featuredProducts: featuredProducts || [],
-            brands: brandList
+            brands: ['Adidas', 'Puma', 'Under Armour', 'New Balance']
         });
     } catch (error) {
         console.error('Home page error:', error);
-        // Even on error, show the page with defaults
-        res.render('index', { 
-            user: req.user || null, 
-            featuredProducts: [],
-            brands: ['Adidas', 'Puma', 'Under Armour', 'New Balance', 'Custom']
+        res.status(500).render('error', { 
+            message: 'Server error',
+            user: req.user || null 
         });
     }
 });
@@ -521,7 +495,7 @@ app.post('/cart/apply-coupon', ensureAuthenticated, async (req, res) => {
 
 // ==================== CHECKOUT ROUTES ====================
 
-// Checkout page
+// Checkout page with QR code generation
 app.get('/checkout', ensureAuthenticated, async (req, res) => {
     try {
         const cartItems = await db.all(`
@@ -544,12 +518,18 @@ app.get('/checkout', ensureAuthenticated, async (req, res) => {
         const discount = req.session.discount || 0;
         const total = subtotal + tax - discount;
 
+        // Generate unique order ID for QR
         const tempOrderId = 'TEMP' + Date.now();
+        
+        // Create UPI payment link
         const upiId = 'sportswear@okhdfcbank';
         const payeeName = 'SportsWear';
         const amount = total.toFixed(2);
         
+        // Create UPI URL
         const upiUrl = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(payeeName)}&am=${amount}&cu=INR&tn=${encodeURIComponent('Order ' + tempOrderId)}`;
+        
+        // Generate QR code as data URL
         const qrCodeDataUrl = await QRCode.toDataURL(upiUrl);
 
         res.render('checkout', { 
@@ -580,6 +560,7 @@ app.post('/checkout/process', ensureAuthenticated, async (req, res) => {
         const fullAddress = `${address}, ${city} - ${pincode}`;
         let paymentProof = null;
 
+        // Handle payment proof upload for QR payments
         if (paymentMethod === 'QR Code' && req.files && req.files.paymentProof) {
             const file = req.files.paymentProof;
             const fileName = `proof_${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, '')}`;
@@ -589,6 +570,7 @@ app.post('/checkout/process', ensureAuthenticated, async (req, res) => {
             paymentProof = `/uploads/${fileName}`;
         }
 
+        // Get cart items
         const cartItems = await db.all(
             'SELECT c.*, p.price, p.id as product_id FROM cart c JOIN products p ON c.product_id = p.id WHERE c.user_id = ?',
             [req.user.id]
@@ -598,6 +580,7 @@ app.post('/checkout/process', ensureAuthenticated, async (req, res) => {
             return res.status(400).json({ error: 'Cart is empty' });
         }
 
+        // Calculate total
         let subtotal = 0;
         cartItems.forEach(item => {
             subtotal += item.price * item.quantity;
@@ -606,50 +589,64 @@ app.post('/checkout/process', ensureAuthenticated, async (req, res) => {
         const tax = subtotal * 0.18;
         const discount = req.session.discount || 0;
         const total = subtotal + tax - discount;
+
+        // Generate order number
         const orderNumber = 'ORD' + Date.now() + Math.floor(Math.random() * 1000);
 
+        // Start transaction
         await db.run('BEGIN TRANSACTION');
 
+        // Create order
         const orderResult = await db.run(`
             INSERT INTO orders (user_id, order_number, total_amount, payment_method, shipping_address, status, phone)
             VALUES (?, ?, ?, ?, ?, ?, ?)
         `, [req.user.id, orderNumber, total, paymentMethod, fullAddress, 'pending', phone]);
 
+        // Add order items and update stock
         for (const item of cartItems) {
             await db.run(`
                 INSERT INTO order_items (order_id, product_id, quantity, price)
                 VALUES (?, ?, ?, ?)
             `, [orderResult.lastID, item.product_id, item.quantity, item.price]);
 
+            // Update stock
             await db.run(
                 'UPDATE products SET stock = stock - ? WHERE id = ?',
                 [item.quantity, item.product_id]
             );
         }
 
-        await db.run(`
+        // Record payment
+        const paymentResult = await db.run(`
             INSERT INTO payments (order_id, user_id, amount, payment_method, payment_proof, status)
             VALUES (?, ?, ?, ?, ?, ?)
         `, [orderResult.lastID, req.user.id, total, paymentMethod, paymentProof, 'pending']);
 
+        // Clear cart
         await db.run('DELETE FROM cart WHERE user_id = ?', [req.user.id]);
 
+        // Clear discount session
         delete req.session.discount;
 
+        // Commit transaction
         await db.run('COMMIT');
 
+        // Get payment details for logging
         const payment = {
             order_id: orderResult.lastID,
             amount: total,
             payment_method: paymentMethod
         };
 
+        // Log payment initiation
         await discordLogger.logPaymentInit(req.user, payment);
 
+        // If payment proof uploaded, log as success with proof
         if (paymentProof) {
             await discordLogger.logPaymentSuccess(req.user, payment, paymentProof);
         }
 
+        // Log order creation
         const order = {
             order_number: orderNumber,
             total_amount: total,
@@ -669,7 +666,7 @@ app.post('/checkout/process', ensureAuthenticated, async (req, res) => {
     }
 });
 
-// API to generate QR code
+// API to generate QR code for amount
 app.post('/api/generate-qr', ensureAuthenticated, async (req, res) => {
     try {
         const { amount } = req.body;
@@ -679,6 +676,7 @@ app.post('/api/generate-qr', ensureAuthenticated, async (req, res) => {
         const orderId = 'TEMP' + Date.now();
         
         const upiUrl = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(payeeName)}&am=${amount}&cu=INR&tn=${encodeURIComponent('Order ' + orderId)}`;
+        
         const qrCodeDataUrl = await QRCode.toDataURL(upiUrl);
         
         res.json({ 
@@ -1281,13 +1279,16 @@ app.post('/admin/orders/:id/verify-payment', ensureAdmin, async (req, res) => {
         const user = await db.get('SELECT * FROM users WHERE id = ?', [order.user_id]);
         
         if (status === 'completed') {
+            // Start transaction
             await db.run('BEGIN TRANSACTION');
             
+            // Update order status
             await db.run(
                 'UPDATE orders SET status = "completed", updated_at = CURRENT_TIMESTAMP WHERE id = ?',
                 [req.params.id]
             );
             
+            // Update payment status
             await db.run(
                 'UPDATE payments SET status = "completed", upi_transaction_id = ? WHERE order_id = ?',
                 [upiTransactionId || null, req.params.id]
@@ -1295,6 +1296,7 @@ app.post('/admin/orders/:id/verify-payment', ensureAdmin, async (req, res) => {
             
             await db.run('COMMIT');
             
+            // Log payment success
             const paymentData = {
                 order_id: order.id,
                 amount: payment.amount,
@@ -1308,8 +1310,10 @@ app.post('/admin/orders/:id/verify-payment', ensureAdmin, async (req, res) => {
             res.json({ success: true, message: 'Payment verified and order completed' });
             
         } else if (status === 'failed') {
+            // Start transaction
             await db.run('BEGIN TRANSACTION');
             
+            // Reject payment
             await db.run(
                 'UPDATE orders SET status = "cancelled", updated_at = CURRENT_TIMESTAMP WHERE id = ?',
                 [req.params.id]
@@ -1320,6 +1324,7 @@ app.post('/admin/orders/:id/verify-payment', ensureAdmin, async (req, res) => {
                 [req.params.id]
             );
             
+            // Restore stock
             const orderItems = await db.all(
                 'SELECT * FROM order_items WHERE order_id = ?',
                 [req.params.id]
@@ -1349,7 +1354,7 @@ app.post('/admin/orders/:id/verify-payment', ensureAdmin, async (req, res) => {
     }
 });
 
-// View payment proof
+// View payment proof (admin only)
 app.get('/admin/payment-proof/:orderId', ensureAdmin, async (req, res) => {
     try {
         const payment = await db.get('SELECT * FROM payments WHERE order_id = ?', [req.params.orderId]);

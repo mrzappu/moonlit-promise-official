@@ -1,7 +1,6 @@
 const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
 const path = require('path');
 const fs = require('fs');
-const http = require('http');
 require('dotenv').config();
 
 class DiscordLogger {
@@ -21,7 +20,6 @@ class DiscordLogger {
         this.reconnectDelay = 5000;
         this.messageQueue = [];
         this.heartbeatInterval = null;
-        this.keepAliveServer = null;
         
         this.channels = {
             // Auth
@@ -63,73 +61,7 @@ class DiscordLogger {
             backup: process.env.DISCORD_BACKUP_CHANNEL
         };
 
-        this.startKeepAliveServer();
         this.init();
-    }
-
-    startKeepAliveServer() {
-        // Create a simple HTTP server to keep the bot alive on Render
-        const port = process.env.PORT || 3000;
-        
-        this.keepAliveServer = http.createServer((req, res) => {
-            const status = this.getStatus();
-            
-            // Handle different routes for monitoring
-            if (req.url === '/health') {
-                res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ 
-                    status: 'healthy',
-                    botReady: status.ready,
-                    uptime: process.uptime(),
-                    timestamp: new Date().toISOString()
-                }));
-            } else if (req.url === '/bot-status') {
-                res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify(status));
-            } else {
-                res.writeHead(200, { 'Content-Type': 'text/html' });
-                res.end(`
-                    <!DOCTYPE html>
-                    <html>
-                    <head>
-                        <title>Discord Bot Status</title>
-                        <meta http-equiv="refresh" content="5">
-                        <style>
-                            body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #1a1a1a; color: white; }
-                            .status { padding: 20px; border-radius: 10px; margin: 20px; }
-                            .online { background: #27ae60; }
-                            .offline { background: #e74c3c; }
-                            .connecting { background: #f39c12; }
-                            .info { background: #34495e; padding: 20px; border-radius: 10px; margin: 20px; text-align: left; }
-                        </style>
-                    </head>
-                    <body>
-                        <h1>🤖 Discord Bot Status</h1>
-                        <div class="status ${status.ready ? 'online' : (status.reconnectAttempts > 0 ? 'connecting' : 'offline')}">
-                            <h2>Bot is ${status.ready ? '🟢 ONLINE' : (status.reconnectAttempts > 0 ? '🟡 CONNECTING' : '🔴 OFFLINE')}</h2>
-                        </div>
-                        <div class="info">
-                            <h3>Details:</h3>
-                            <p><strong>Bot Name:</strong> ${status.user?.tag || 'N/A'}</p>
-                            <p><strong>Bot ID:</strong> ${status.user?.id || 'N/A'}</p>
-                            <p><strong>Servers:</strong> ${status.guilds}</p>
-                            <p><strong>Reconnect Attempts:</strong> ${status.reconnectAttempts}/${status.maxReconnectAttempts}</p>
-                            <p><strong>Queued Messages:</strong> ${status.queuedMessages}</p>
-                            <p><strong>Uptime:</strong> ${Math.floor(process.uptime() / 60)} minutes</p>
-                            <p><strong>Last Updated:</strong> ${new Date().toLocaleString()}</p>
-                        </div>
-                        <p><small>This server keeps the Discord bot alive on Render</small></p>
-                    </body>
-                    </html>
-                `);
-            }
-        });
-
-        this.keepAliveServer.listen(port, '0.0.0.0', () => {
-            console.log(`📡 Keep-alive server running on port ${port}`);
-            console.log(`   Health check: http://localhost:${port}/health`);
-            console.log(`   Bot status: http://localhost:${port}/bot-status`);
-        });
     }
 
     async init() {
@@ -1001,9 +933,6 @@ class DiscordLogger {
     shutdown() {
         console.log('🛑 Shutting down Discord bot...');
         this.stopHeartbeat();
-        if (this.keepAliveServer) {
-            this.keepAliveServer.close();
-        }
         if (this.client) {
             this.client.destroy();
         }

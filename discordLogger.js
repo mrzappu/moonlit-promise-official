@@ -10,16 +10,14 @@ class DiscordLogger {
                 GatewayIntentBits.Guilds,
                 GatewayIntentBits.GuildMessages,
                 GatewayIntentBits.MessageContent,
-                GatewayIntentBits.GuildMembers,
-                GatewayIntentBits.GuildPresences
+                GatewayIntentBits.GuildMembers
             ] 
         });
         this.ready = false;
         this.reconnectAttempts = 0;
-        this.maxReconnectAttempts = 20;
+        this.maxReconnectAttempts = 10;
         this.reconnectDelay = 5000;
         this.messageQueue = [];
-        this.heartbeatInterval = null;
         
         this.channels = {
             // Auth
@@ -69,42 +67,27 @@ class DiscordLogger {
             console.log('🔄 Initializing Discord bot...');
             console.log('🔑 Token exists:', !!process.env.DISCORD_BOT_TOKEN);
             console.log('🔑 Token length:', process.env.DISCORD_BOT_TOKEN ? process.env.DISCORD_BOT_TOKEN.length : 0);
-            console.log('🔑 Token first 10 chars:', process.env.DISCORD_BOT_TOKEN ? process.env.DISCORD_BOT_TOKEN.substring(0, 10) + '...' : 'N/A');
 
-            // Validate token
             if (!process.env.DISCORD_BOT_TOKEN) {
                 throw new Error('DISCORD_BOT_TOKEN is not defined in environment variables');
             }
 
-            if (process.env.DISCORD_BOT_TOKEN.length < 50) {
-                console.warn('⚠️ Discord bot token seems too short. Make sure it\'s correct.');
-            }
-
-            // Set up event handlers
             this.client.on('ready', () => {
                 console.log(`✅ Discord bot connected as ${this.client.user.tag}`);
                 console.log(`   Bot ID: ${this.client.user.id}`);
                 console.log(`   Serving ${this.client.guilds.cache.size} guilds`);
                 this.ready = true;
                 this.reconnectAttempts = 0;
-                
-                // Start heartbeat monitoring
-                this.startHeartbeat();
-                
-                // Process any queued messages
                 this.processQueue();
-                
-                // Log successful connection
                 this.logSystem('Discord bot connected successfully', 'success');
             });
 
             this.client.on('error', (error) => {
                 console.error('❌ Discord client error:', error.message);
-                console.error('   Error code:', error.code);
                 this.ready = false;
                 
                 if (error.code === 'TokenInvalid') {
-                    console.error('   → Invalid bot token. Please reset in Discord Developer Portal');
+                    console.error('   → Invalid bot token. Reset it in Discord Developer Portal');
                 } else if (error.code === 'DISALLOWED_INTENTS') {
                     console.error('   → Missing required intents. Enable them in Discord Developer Portal');
                 }
@@ -113,30 +96,7 @@ class DiscordLogger {
             this.client.on('disconnect', () => {
                 console.log('⚠️ Discord bot disconnected');
                 this.ready = false;
-                this.stopHeartbeat();
                 this.reconnect();
-            });
-
-            this.client.on('reconnecting', () => {
-                console.log('🔄 Discord bot reconnecting...');
-            });
-
-            this.client.on('warn', (warning) => {
-                console.warn('⚠️ Discord client warning:', warning);
-            });
-
-            this.client.on('shardDisconnect', (event, shardId) => {
-                console.log(`⚠️ Shard ${shardId} disconnected`);
-                this.ready = false;
-            });
-
-            this.client.on('shardReconnecting', (shardId) => {
-                console.log(`🔄 Shard ${shardId} reconnecting...`);
-            });
-
-            this.client.on('shardResume', (shardId, replayedEvents) => {
-                console.log(`✅ Shard ${shardId} resumed, replayed ${replayedEvents} events`);
-                this.ready = true;
             });
 
             console.log('🔑 Attempting to login to Discord...');
@@ -144,49 +104,21 @@ class DiscordLogger {
             
         } catch (error) {
             console.error('❌ Failed to connect Discord logger:', error.message);
-            console.error('   Error code:', error.code);
             this.ready = false;
             
-            // Specific error handling
             if (error.code === 'TokenInvalid') {
                 console.error('   → The bot token is invalid. Reset it in Discord Developer Portal');
-                console.error('   → Go to: https://discord.com/developers/applications');
             } else if (error.code === 'DISALLOWED_INTENTS') {
-                console.error('   → Missing required intents. Enable them in Discord Developer Portal:');
-                console.error('   → Go to Bot section → Privileged Gateway Intents');
-            } else if (error.code === 'TOKEN_INVALID') {
-                console.error('   → Token is malformed. Check for extra spaces or quotes');
+                console.error('   → Missing required intents. Enable them in Discord Developer Portal');
             }
             
             this.reconnect();
         }
     }
 
-    startHeartbeat() {
-        this.stopHeartbeat(); // Clear any existing interval
-        this.heartbeatInterval = setInterval(() => {
-            if (this.client.ws && this.client.ws.ping) {
-                console.log(`💓 Discord heartbeat: ${this.client.ws.ping}ms`);
-                
-                // If ping is too high or connection seems stale, check status
-                if (this.client.ws.ping > 1000) {
-                    console.warn('⚠️ High Discord latency detected');
-                }
-            }
-        }, 30000); // Check every 30 seconds
-    }
-
-    stopHeartbeat() {
-        if (this.heartbeatInterval) {
-            clearInterval(this.heartbeatInterval);
-            this.heartbeatInterval = null;
-        }
-    }
-
     async reconnect() {
         if (this.reconnectAttempts >= this.maxReconnectAttempts) {
             console.error('❌ Max reconnection attempts reached. Giving up.');
-            this.logSystem('Discord bot failed to reconnect after max attempts', 'error');
             return;
         }
 
@@ -197,8 +129,7 @@ class DiscordLogger {
             this.init();
         }, this.reconnectDelay);
 
-        // Exponential backoff with max 5 minutes
-        this.reconnectDelay = Math.min(this.reconnectDelay * 1.5, 300000);
+        this.reconnectDelay = Math.min(this.reconnectDelay * 1.5, 30000);
     }
 
     async processQueue() {
@@ -209,7 +140,7 @@ class DiscordLogger {
         for (const queued of this.messageQueue) {
             try {
                 await this.sendToChannel(queued.channelId, queued.message, queued.embed, queued.file);
-                await new Promise(resolve => setTimeout(resolve, 1000)); // Rate limit prevention
+                await new Promise(resolve => setTimeout(resolve, 1000));
             } catch (error) {
                 console.error('Error sending queued message:', error);
             }
@@ -220,11 +151,10 @@ class DiscordLogger {
     }
 
     async sendToChannel(channelId, message, embed = null, file = null) {
-        // If bot not ready, queue the message
         if (!this.ready) {
             this.messageQueue.push({ channelId, message, embed, file });
             if (this.messageQueue.length === 1) {
-                console.log('⏳ Bot initializing - messages will be sent when ready');
+                console.log('⏳ Bot initializing - messages queued');
             }
             return;
         }
@@ -250,25 +180,8 @@ class DiscordLogger {
             }
             
             await channel.send(content);
-            return true;
         } catch (error) {
             console.error(`❌ Failed to send to Discord:`, error.message);
-            
-            if (error.code === 10003) {
-                console.error(`   → Channel ${channelId} does not exist`);
-            } else if (error.code === 50001) {
-                console.error(`   → Bot lacks permissions in channel ${channelId}`);
-            } else if (error.code === 50013) {
-                console.error(`   → Bot missing permissions`);
-            } else if (error.code === 429) {
-                console.error(`   → Rate limited. Retrying later...`);
-                // Re-queue with delay
-                setTimeout(() => {
-                    this.messageQueue.push({ channelId, message, embed, file });
-                }, 5000);
-            }
-            
-            return false;
         }
     }
 
@@ -306,14 +219,12 @@ class DiscordLogger {
             { name: '🌐 IP Address', value: ip || 'Unknown', inline: true },
             { name: '🔑 Login Method', value: method, inline: true },
             { name: '🤖 Is Admin', value: user.is_admin ? 'Yes' : 'No', inline: true },
-            { name: '🚫 Is Banned', value: user.is_banned ? 'Yes' : 'No', inline: true },
-            { name: '📅 Account Created', value: user.created_at ? new Date(user.created_at).toLocaleString('en-IN') : 'N/A', inline: true },
             { name: '🕐 Login Time', value: new Date().toLocaleString('en-IN'), inline: true }
         ];
         
         const embed = this.createEmbed(
             '🔐 User Login',
-            `**${user.username}** logged into the website using **${method}**`,
+            `**${user.username}** logged into the website`,
             0x00ff00,
             fields,
             'Login Event'
@@ -330,11 +241,6 @@ class DiscordLogger {
         const fields = [
             { name: '👤 Username', value: user.username, inline: true },
             { name: '🆔 User ID', value: user.id?.toString() || 'N/A', inline: true },
-            { name: '🆔 Discord ID', value: user.discord_id || 'N/A', inline: true },
-            { name: '📧 Email', value: user.email || 'Not provided', inline: true },
-            { name: '📞 Phone', value: user.phone || 'Not provided', inline: true },
-            { name: '📅 Account Created', value: user.created_at ? new Date(user.created_at).toLocaleString('en-IN') : 'N/A', inline: true },
-            { name: '📊 Session Duration', value: user.last_login ? `${Math.round((new Date() - new Date(user.last_login)) / 60000)} minutes` : 'N/A', inline: true },
             { name: '🕐 Logout Time', value: new Date().toLocaleString('en-IN'), inline: true }
         ];
         
@@ -355,9 +261,7 @@ class DiscordLogger {
             { name: '🆔 User ID', value: user.id?.toString() || 'N/A', inline: true },
             { name: '🆔 Discord ID', value: user.discord_id || 'N/A', inline: true },
             { name: '📧 Email', value: user.email || 'Not provided', inline: true },
-            { name: '🤖 Is Admin', value: user.is_admin ? 'Yes' : 'No', inline: true },
-            { name: '📅 Joined', value: new Date().toLocaleString('en-IN'), inline: true },
-            { name: '🔑 Registration Method', value: user.discord_id ? 'Discord' : 'Local', inline: true }
+            { name: '📅 Joined', value: new Date().toLocaleString('en-IN'), inline: true }
         ];
         
         const embed = this.createEmbed(
@@ -378,16 +282,12 @@ class DiscordLogger {
             { name: '📧 Email', value: user.email || 'Not provided', inline: true },
             { name: '📞 Phone', value: user.phone || 'Not provided', inline: true },
             { name: '🌐 IP Address', value: req?.ip || 'Unknown', inline: true },
-            { name: '🌍 Location', value: req?.headers?.['x-forwarded-for'] || 'Unknown', inline: true },
-            { name: '📱 User Agent', value: req?.headers?.['user-agent']?.substring(0, 100) || 'Unknown', inline: true },
-            { name: '🤖 Is Admin', value: 'No', inline: true },
-            { name: '📅 Joined', value: new Date().toLocaleString('en-IN'), inline: true },
-            { name: '🔑 Registration Method', value: 'Username/Password', inline: true }
+            { name: '📅 Joined', value: new Date().toLocaleString('en-IN'), inline: true }
         ];
         
         const embed = this.createEmbed(
             '📝 New Local Registration',
-            `New user **${user.username}** registered with username/password`,
+            `New user **${user.username}** registered`,
             0x00ff00,
             fields,
             'Registration Event'
@@ -401,13 +301,12 @@ class DiscordLogger {
             { name: '👤 Attempted Username', value: username || 'Unknown', inline: true },
             { name: '🌐 IP Address', value: ip || 'Unknown', inline: true },
             { name: '❌ Reason', value: reason, inline: true },
-            { name: '🔑 Method', value: method, inline: true },
             { name: '🕐 Time', value: new Date().toLocaleString('en-IN'), inline: true }
         ];
         
         const embed = this.createEmbed(
             '⚠️ Failed Login Attempt',
-            `Failed login attempt for username **${username || 'Unknown'}**`,
+            `Failed login attempt for **${username || 'Unknown'}**`,
             0xffaa00,
             fields,
             'Security Alert'
@@ -419,17 +318,14 @@ class DiscordLogger {
     async logAccountLockout(user, ip, reason = 'Too many failed attempts') {
         const fields = [
             { name: '👤 Username', value: user.username, inline: true },
-            { name: '🆔 User ID', value: user.id?.toString() || 'N/A', inline: true },
-            { name: '📧 Email', value: user.email || 'Not provided', inline: true },
             { name: '🌐 IP Address', value: ip || 'Unknown', inline: true },
             { name: '❌ Reason', value: reason, inline: true },
-            { name: '🔒 Lockout Time', value: new Date().toLocaleString('en-IN'), inline: true },
-            { name: '⏰ Lockout Duration', value: '15 minutes', inline: true }
+            { name: '🔒 Lockout Time', value: new Date().toLocaleString('en-IN'), inline: true }
         ];
         
         const embed = this.createEmbed(
             '🔒 Account Lockout',
-            `Account **${user.username}** has been temporarily locked`,
+            `Account **${user.username}** locked`,
             0xff0000,
             fields,
             'Security Alert'
@@ -441,8 +337,6 @@ class DiscordLogger {
     async logPasswordChange(user, ip, changedBy = 'user') {
         const fields = [
             { name: '👤 Username', value: user.username, inline: true },
-            { name: '🆔 User ID', value: user.id?.toString() || 'N/A', inline: true },
-            { name: '📧 Email', value: user.email || 'Not provided', inline: true },
             { name: '🌐 IP Address', value: ip || 'Unknown', inline: true },
             { name: '✏️ Changed By', value: changedBy === 'user' ? 'User' : 'Admin', inline: true },
             { name: '🕐 Time', value: new Date().toLocaleString('en-IN'), inline: true }
@@ -450,7 +344,7 @@ class DiscordLogger {
         
         const embed = this.createEmbed(
             '✏️ Password Changed',
-            `Password changed for user **${user.username}**`,
+            `Password changed for **${user.username}**`,
             0xffaa00,
             fields,
             'Security Update'
@@ -467,8 +361,8 @@ class DiscordLogger {
         ];
         
         const embed = this.createEmbed(
-            '🔄 Account Recovery Requested',
-            `Password reset requested for email **${email || 'Unknown'}**`,
+            '🔄 Account Recovery',
+            `Password reset requested for **${email || 'Unknown'}**`,
             0xffaa00,
             fields,
             'Security Alert'
@@ -477,59 +371,34 @@ class DiscordLogger {
         await this.sendToChannel(this.channels.login, null, embed);
     }
 
-    // ==================== ORDER LOGS WITH FULL DETAILS ====================
+    // ==================== ORDER LOGS ====================
 
     async logOrderCreate(user, order, orderItems, shippingDetails) {
-        // Calculate total
         let totalAmount = 0;
         let itemsList = '';
         
         orderItems.forEach((item, index) => {
-            if (index < 8) {
-                itemsList += `**${item.name}**\n`;
-                itemsList += `└ Qty: ${item.quantity} × ₹${item.price} = ₹${item.quantity * item.price}\n`;
+            if (index < 5) {
+                itemsList += `**${item.name}** x${item.quantity} = ₹${item.price * item.quantity}\n`;
             }
             totalAmount += item.price * item.quantity;
         });
-        
-        if (orderItems.length > 8) {
-            itemsList += `*...and ${orderItems.length - 8} more items*`;
-        }
 
         const fields = [
-            // Order Information
             { name: '📋 Order Number', value: order.order_number, inline: true },
-            { name: '💰 Total Amount', value: `₹${totalAmount.toFixed(2)}`, inline: true },
-            { name: '💳 Payment Method', value: order.payment_method, inline: true },
-            { name: '📊 Order Status', value: order.status.toUpperCase(), inline: true },
-            
-            // Customer Information
+            { name: '💰 Total', value: `₹${totalAmount.toFixed(2)}`, inline: true },
+            { name: '💳 Payment', value: order.payment_method, inline: true },
             { name: '👤 Customer', value: user.username, inline: true },
-            { name: '🆔 User ID', value: user.id?.toString() || 'N/A', inline: true },
-            { name: '🆔 Discord ID', value: user.discord_id || 'N/A', inline: true },
-            { name: '📧 Email', value: user.email || 'Not provided', inline: true },
-            
-            // Contact Details
-            { name: '📞 Phone Number', value: shippingDetails.phone || order.phone || 'Not provided', inline: true },
-            { name: '📍 PIN Code', value: shippingDetails.pincode || 'N/A', inline: true },
-            { name: '🏙️ City', value: shippingDetails.city || 'N/A', inline: true },
-            
-            // Shipping Address
-            { name: '🏠 Shipping Address', value: shippingDetails.fullAddress || order.shipping_address || 'Not provided', inline: false },
-            
-            // Order Items
-            { name: '🛍️ Order Items', value: itemsList || 'No items', inline: false },
-            
-            // Timestamps
-            { name: '🕐 Order Date', value: new Date(order.created_at).toLocaleString('en-IN'), inline: true }
+            { name: '📞 Phone', value: shippingDetails.phone || order.phone || 'N/A', inline: true },
+            { name: '📍 Address', value: shippingDetails.fullAddress || order.shipping_address || 'N/A', inline: false },
+            { name: '🛍️ Items', value: itemsList || 'No items', inline: false }
         ];
         
         const embed = this.createEmbed(
-            '📦 New Order Received',
-            `**Order #${order.order_number}** has been placed by **${user.username}**`,
+            '📦 New Order',
+            `Order #${order.order_number} placed`,
             0x00ff00,
-            fields,
-            `Total: ₹${totalAmount.toFixed(2)}`
+            fields
         );
         
         await this.sendToChannel(this.channels.orderCreate, null, embed);
@@ -537,65 +406,34 @@ class DiscordLogger {
 
     async logOrderUpdate(user, order, oldStatus, newStatus, updatedBy = 'system') {
         const fields = [
-            { name: '📋 Order Number', value: order.order_number, inline: true },
+            { name: '📋 Order', value: order.order_number, inline: true },
             { name: '💰 Amount', value: `₹${order.total_amount}`, inline: true },
-            { name: '📊 Old Status', value: oldStatus.toUpperCase(), inline: true },
-            { name: '📊 New Status', value: newStatus.toUpperCase(), inline: true },
-            { name: '👤 Customer', value: user.username, inline: true },
-            { name: '📞 Phone', value: order.phone || 'N/A', inline: true },
-            { name: '👤 Updated By', value: updatedBy === 'system' ? 'System' : user.username, inline: true },
-            { name: '🕐 Update Time', value: new Date().toLocaleString('en-IN'), inline: true }
+            { name: '📊 Old Status', value: oldStatus, inline: true },
+            { name: '📊 New Status', value: newStatus, inline: true }
         ];
         
         const embed = this.createEmbed(
-            '🔄 Order Status Updated',
-            `Order **${order.order_number}** status changed from **${oldStatus}** to **${newStatus}**`,
+            '🔄 Order Updated',
+            `Order #${order.order_number} updated`,
             0xffaa00,
-            fields,
-            'Order Update'
+            fields
         );
         
         await this.sendToChannel(this.channels.orderUpdate, null, embed);
     }
 
-    async logOrderStatus(user, order, status) {
-        const fields = [
-            { name: '📋 Order Number', value: order.order_number, inline: true },
-            { name: '💰 Amount', value: `₹${order.total_amount}`, inline: true },
-            { name: '📊 Status', value: status.toUpperCase(), inline: true },
-            { name: '👤 Customer', value: user.username, inline: true },
-            { name: '📞 Phone', value: order.phone || 'N/A', inline: true },
-            { name: '🕐 Time', value: new Date().toLocaleString('en-IN'), inline: true }
-        ];
-        
-        const embed = this.createEmbed(
-            '📊 Order Status',
-            `Order **${order.order_number}** is now **${status}**`,
-            0x3498db,
-            fields,
-            'Status Update'
-        );
-        
-        await this.sendToChannel(this.channels.orderStatus, null, embed);
-    }
-
     async logOrderComplete(user, order, shippingDetails) {
         const fields = [
-            { name: '📋 Order Number', value: order.order_number, inline: true },
-            { name: '💰 Total Amount', value: `₹${order.total_amount}`, inline: true },
-            { name: '💳 Payment Method', value: order.payment_method, inline: true },
-            { name: '👤 Customer', value: user.username, inline: true },
-            { name: '📞 Phone', value: shippingDetails?.phone || order.phone || 'N/A', inline: true },
-            { name: '📧 Email', value: user.email || 'N/A', inline: true },
-            { name: '✅ Completed At', value: new Date().toLocaleString('en-IN'), inline: true }
+            { name: '📋 Order', value: order.order_number, inline: true },
+            { name: '💰 Total', value: `₹${order.total_amount}`, inline: true },
+            { name: '👤 Customer', value: user.username, inline: true }
         ];
         
         const embed = this.createEmbed(
-            '✅ Order Completed',
-            `Order **${order.order_number}** has been completed successfully`,
+            '✅ Order Complete',
+            `Order #${order.order_number} completed`,
             0x00ff00,
-            fields,
-            'Order Complete'
+            fields
         );
         
         await this.sendToChannel(this.channels.orderComplete, null, embed);
@@ -608,17 +446,14 @@ class DiscordLogger {
             { name: '💰 Amount', value: `₹${payment.amount}`, inline: true },
             { name: '💳 Method', value: payment.payment_method, inline: true },
             { name: '🆔 Order ID', value: payment.order_id.toString(), inline: true },
-            { name: '👤 User', value: user.username, inline: true },
-            { name: '📞 Phone', value: orderDetails.phone || 'N/A', inline: true },
-            { name: '🕐 Time', value: new Date().toLocaleString('en-IN'), inline: true }
+            { name: '📞 Phone', value: orderDetails.phone || 'N/A', inline: true }
         ];
         
         const embed = this.createEmbed(
             '💳 Payment Initiated',
-            `Payment initiated for order **#${payment.order_id}**`,
+            `Payment for order #${payment.order_id}`,
             0xffaa00,
-            fields,
-            'Awaiting Payment'
+            fields
         );
         
         await this.sendToChannel(this.channels.paymentInit, null, embed);
@@ -628,30 +463,23 @@ class DiscordLogger {
         const fields = [
             { name: '💰 Amount', value: `₹${payment.amount}`, inline: true },
             { name: '💳 Method', value: payment.payment_method, inline: true },
-            { name: '🆔 Order ID', value: payment.order_id.toString(), inline: true },
-            { name: '👤 User', value: user.username, inline: true },
-            { name: '📞 Phone', value: orderDetails.phone || 'N/A', inline: true },
-            { name: '📍 Location', value: orderDetails.city || 'India', inline: true }
+            { name: '👤 User', value: user.username, inline: true }
         ];
         
         if (upiTransactionId) {
-            fields.push({ name: '🆔 UPI Transaction ID', value: `\`${upiTransactionId}\``, inline: false });
+            fields.push({ name: '🆔 UPI Txn ID', value: upiTransactionId, inline: false });
         }
         
-        fields.push({ name: '✅ Payment Time', value: new Date().toLocaleString('en-IN'), inline: false });
-        
         const embed = this.createEmbed(
-            '✅ Payment Successful',
-            `Payment received for order **#${payment.order_id}**`,
+            '✅ Payment Success',
+            `Payment received for order #${payment.order_id}`,
             0x00ff00,
-            fields,
-            'Payment Verified'
+            fields
         );
         
-        let message = `💰 **Payment Success**\n**Order:** #${payment.order_id}\n**Amount:** ₹${payment.amount}\n**User:** ${user.username}\n**Phone:** ${orderDetails.phone || 'N/A'}`;
-        
+        let message = `💰 Payment received for order #${payment.order_id}`;
         if (proofUrl) {
-            message += `\n**Proof:** ${proofUrl}`;
+            message += `\nProof: ${proofUrl}`;
             const filePath = proofUrl.startsWith('/uploads/') ? path.join(__dirname, 'public', proofUrl) : null;
             if (filePath && fs.existsSync(filePath)) {
                 await this.sendToChannel(this.channels.paymentSuccess, message, embed, filePath);
@@ -665,43 +493,17 @@ class DiscordLogger {
     async logPaymentFailed(user, payment, reason, orderDetails = {}) {
         const fields = [
             { name: '💰 Amount', value: `₹${payment.amount}`, inline: true },
-            { name: '💳 Method', value: payment.payment_method, inline: true },
-            { name: '🆔 Order ID', value: payment.order_id.toString(), inline: true },
-            { name: '👤 User', value: user.username, inline: true },
-            { name: '📞 Phone', value: orderDetails.phone || 'N/A', inline: true },
-            { name: '❌ Reason', value: reason, inline: false },
-            { name: '🕐 Failed At', value: new Date().toLocaleString('en-IN'), inline: true }
+            { name: '❌ Reason', value: reason, inline: false }
         ];
         
         const embed = this.createEmbed(
             '❌ Payment Failed',
-            `Payment failed for order **#${payment.order_id}**`,
+            `Payment failed for order #${payment.order_id}`,
             0xff0000,
-            fields,
-            'Payment Failed'
+            fields
         );
         
         await this.sendToChannel(this.channels.paymentFailed, null, embed);
-    }
-
-    async logPaymentRefund(admin, payment, reason) {
-        const fields = [
-            { name: '💰 Amount', value: `₹${payment.amount}`, inline: true },
-            { name: '🆔 Order ID', value: payment.order_id.toString(), inline: true },
-            { name: '👤 Admin', value: admin.username, inline: true },
-            { name: '❌ Reason', value: reason, inline: false },
-            { name: '🕐 Time', value: new Date().toLocaleString('en-IN'), inline: true }
-        ];
-        
-        const embed = this.createEmbed(
-            '💸 Payment Refunded',
-            `Payment refunded for order **#${payment.order_id}**`,
-            0xffaa00,
-            fields,
-            'Refund Processed'
-        );
-        
-        await this.sendToChannel(this.channels.paymentRefund, null, embed);
     }
 
     // ==================== CART LOGS ====================
@@ -709,59 +511,25 @@ class DiscordLogger {
     async logCartAdd(user, product, quantity) {
         const fields = [
             { name: '👤 User', value: user.username, inline: true },
-            { name: '🆔 User ID', value: user.id?.toString() || 'N/A', inline: true },
             { name: '📦 Product', value: product.name, inline: true },
-            { name: '🔢 Quantity', value: quantity.toString(), inline: true },
-            { name: '💰 Unit Price', value: `₹${product.price}`, inline: true },
-            { name: '💵 Total', value: `₹${product.price * quantity}`, inline: true },
-            { name: '🕐 Time', value: new Date().toLocaleString('en-IN'), inline: true }
+            { name: '🔢 Quantity', value: quantity.toString(), inline: true }
         ];
         
         const embed = this.createEmbed(
-            '🛒 Item Added to Cart',
-            `**${user.username}** added **${product.name}** to cart`,
+            '🛒 Cart Add',
+            `**${user.username}** added **${product.name}**`,
             0x00ff00,
-            fields,
-            'Cart Addition'
+            fields
         );
         
         await this.sendToChannel(this.channels.cartAdd, null, embed);
     }
 
-    async logCartRemove(user, product) {
-        const fields = [
-            { name: '👤 User', value: user.username, inline: true },
-            { name: '🆔 User ID', value: user.id?.toString() || 'N/A', inline: true },
-            { name: '📦 Product', value: product.name, inline: true },
-            { name: '🕐 Time', value: new Date().toLocaleString('en-IN'), inline: true }
-        ];
-        
-        const embed = this.createEmbed(
-            '❌ Item Removed from Cart',
-            `**${user.username}** removed **${product.name}** from cart`,
-            0xffaa00,
-            fields,
-            'Cart Removal'
-        );
-        
-        await this.sendToChannel(this.channels.cartRemove, null, embed);
-    }
-
     async logCartView(user) {
-        const fields = [
-            { name: '👤 User', value: user.username, inline: true },
-            { name: '🆔 User ID', value: user.id?.toString() || 'N/A', inline: true },
-            { name: '🆔 Discord ID', value: user.discord_id || 'N/A', inline: true },
-            { name: '📧 Email', value: user.email || 'Not provided', inline: true },
-            { name: '🕐 Time', value: new Date().toLocaleString('en-IN'), inline: true }
-        ];
-        
         const embed = this.createEmbed(
-            '👀 Cart Viewed',
-            `**${user.username}** viewed their cart`,
-            0x3498db,
-            fields,
-            'Cart View'
+            '👀 Cart View',
+            `**${user.username}** viewed cart`,
+            0x3498db
         );
         
         await this.sendToChannel(this.channels.cartView, null, embed);
@@ -772,21 +540,15 @@ class DiscordLogger {
     async logProductView(user, product) {
         const fields = [
             { name: '👤 User', value: user?.username || 'Guest', inline: true },
-            { name: '🆔 User ID', value: user?.id?.toString() || 'Guest', inline: true },
             { name: '📦 Product', value: product.name, inline: true },
-            { name: '💰 Price', value: `₹${product.price}`, inline: true },
-            { name: '🏷️ Brand', value: product.brand, inline: true },
-            { name: '📂 Category', value: product.category, inline: true },
-            { name: '🆔 Product ID', value: product.id.toString(), inline: true },
-            { name: '🕐 Time', value: new Date().toLocaleString('en-IN'), inline: true }
+            { name: '💰 Price', value: `₹${product.price}`, inline: true }
         ];
         
         const embed = this.createEmbed(
-            '👀 Product Viewed',
-            `${user?.username || 'Guest'} viewed **${product.name}**`,
+            '👀 Product View',
+            `**${product.name}** viewed`,
             0x3498db,
-            fields,
-            'Product View'
+            fields
         );
         
         await this.sendToChannel(this.channels.productView, null, embed);
@@ -795,21 +557,15 @@ class DiscordLogger {
     async logProductAdd(admin, product) {
         const fields = [
             { name: '👤 Admin', value: admin.username, inline: true },
-            { name: '🆔 Admin ID', value: admin.id?.toString() || 'N/A', inline: true },
             { name: '📦 Product', value: product.name, inline: true },
-            { name: '💰 Price', value: `₹${product.price}`, inline: true },
-            { name: '📂 Category', value: product.category, inline: true },
-            { name: '🏷️ Brand', value: product.brand, inline: true },
-            { name: '📦 Stock', value: product.stock?.toString() || 'N/A', inline: true },
-            { name: '🕐 Time', value: new Date().toLocaleString('en-IN'), inline: true }
+            { name: '💰 Price', value: `₹${product.price}`, inline: true }
         ];
         
         const embed = this.createEmbed(
             '➕ Product Added',
-            `New product **${product.name}** added by **${admin.username}**`,
+            `**${product.name}** added by **${admin.username}**`,
             0x00ff00,
-            fields,
-            'Product Addition'
+            fields
         );
         
         await this.sendToChannel(this.channels.productAdd, null, embed);
@@ -818,21 +574,15 @@ class DiscordLogger {
     async logProductEdit(admin, product, changes) {
         const fields = [
             { name: '👤 Admin', value: admin.username, inline: true },
-            { name: '🆔 Admin ID', value: admin.id?.toString() || 'N/A', inline: true },
             { name: '📦 Product', value: product.name, inline: true },
-            { name: '💰 Price', value: `₹${product.price}`, inline: true },
-            { name: '📂 Category', value: product.category, inline: true },
-            { name: '🏷️ Brand', value: product.brand, inline: true },
-            { name: '✏️ Changes', value: changes || 'Product details updated', inline: false },
-            { name: '🕐 Time', value: new Date().toLocaleString('en-IN'), inline: true }
+            { name: '✏️ Changes', value: changes || 'Product updated', inline: false }
         ];
         
         const embed = this.createEmbed(
             '✏️ Product Edited',
-            `Product **${product.name}** edited by **${admin.username}**`,
+            `**${product.name}** edited`,
             0xffaa00,
-            fields,
-            'Product Edit'
+            fields
         );
         
         await this.sendToChannel(this.channels.productEdit, null, embed);
@@ -841,20 +591,14 @@ class DiscordLogger {
     async logProductDelete(admin, product) {
         const fields = [
             { name: '👤 Admin', value: admin.username, inline: true },
-            { name: '🆔 Admin ID', value: admin.id?.toString() || 'N/A', inline: true },
-            { name: '📦 Product', value: product.name, inline: true },
-            { name: '💰 Price', value: `₹${product.price}`, inline: true },
-            { name: '📂 Category', value: product.category, inline: true },
-            { name: '🏷️ Brand', value: product.brand, inline: true },
-            { name: '🕐 Time', value: new Date().toLocaleString('en-IN'), inline: true }
+            { name: '📦 Product', value: product.name, inline: true }
         ];
         
         const embed = this.createEmbed(
             '🗑️ Product Deleted',
-            `Product **${product.name}** deleted by **${admin.username}**`,
+            `**${product.name}** deleted`,
             0xff0000,
-            fields,
-            'Product Deletion'
+            fields
         );
         
         await this.sendToChannel(this.channels.productDelete, null, embed);
@@ -863,21 +607,10 @@ class DiscordLogger {
     // ==================== ADMIN LOGS ====================
 
     async logAdminLogin(admin) {
-        const fields = [
-            { name: '👤 Admin', value: admin.username, inline: true },
-            { name: '🆔 Admin ID', value: admin.id?.toString() || 'N/A', inline: true },
-            { name: '🆔 Discord ID', value: admin.discord_id || 'N/A', inline: true },
-            { name: '📧 Email', value: admin.email || 'Not provided', inline: true },
-            { name: '🤖 Admin Level', value: 'Full Access', inline: true },
-            { name: '🕐 Time', value: new Date().toLocaleString('en-IN'), inline: true }
-        ];
-        
         const embed = this.createEmbed(
             '👑 Admin Login',
             `**${admin.username}** logged into admin panel`,
-            0xffaa00,
-            fields,
-            'Admin Access'
+            0xffaa00
         );
         
         await this.sendToChannel(this.channels.adminLogin, null, embed);
@@ -885,43 +618,18 @@ class DiscordLogger {
 
     async logAdminAction(admin, action, details) {
         const fields = [
-            { name: '👤 Admin', value: admin.username, inline: true },
-            { name: '🆔 Admin ID', value: admin.id?.toString() || 'N/A', inline: true },
             { name: '⚡ Action', value: action, inline: true },
-            { name: '📝 Details', value: details, inline: false },
-            { name: '🕐 Time', value: new Date().toLocaleString('en-IN'), inline: true }
+            { name: '📝 Details', value: details, inline: false }
         ];
         
         const embed = this.createEmbed(
             '⚡ Admin Action',
-            `Admin action performed by **${admin.username}**`,
+            `Action by **${admin.username}**`,
             0xffaa00,
-            fields,
-            'Admin Activity'
+            fields
         );
         
         await this.sendToChannel(this.channels.adminAction, null, embed);
-    }
-
-    async logAdminProduct(admin, action, product) {
-        const fields = [
-            { name: '👤 Admin', value: admin.username, inline: true },
-            { name: '🆔 Admin ID', value: admin.id?.toString() || 'N/A', inline: true },
-            { name: '⚡ Action', value: action, inline: true },
-            { name: '📦 Product', value: product.name, inline: true },
-            { name: '💰 Price', value: `₹${product.price}`, inline: true },
-            { name: '🕐 Time', value: new Date().toLocaleString('en-IN'), inline: true }
-        ];
-        
-        const embed = this.createEmbed(
-            '📦 Admin Product Action',
-            `Admin **${admin.username}** ${action} product **${product.name}**`,
-            0xffaa00,
-            fields,
-            'Product Management'
-        );
-        
-        await this.sendToChannel(this.channels.adminProduct, null, embed);
     }
 
     // ==================== SYSTEM LOGS ====================
@@ -930,19 +638,15 @@ class DiscordLogger {
         console.error('Logging error to Discord:', error.message);
         
         const fields = [
-            { name: '⚠️ Error', value: error.message || 'Unknown error', inline: false },
-            { name: '📍 Location', value: context.location || 'unknown', inline: true },
-            { name: '👤 User', value: context.user?.username || 'Guest', inline: true },
-            { name: '🆔 User ID', value: context.user?.id?.toString() || 'N/A', inline: true },
-            { name: '📝 Stack', value: (error.stack || '').substring(0, 500), inline: false }
+            { name: '⚠️ Error', value: error.message || 'Unknown', inline: false },
+            { name: '📍 Location', value: context.location || 'unknown', inline: true }
         ];
         
         const embed = this.createEmbed(
             '⚠️ System Error',
-            'An error occurred in the application',
+            'An error occurred',
             0xff0000,
-            fields,
-            'Error Alert'
+            fields
         );
         
         await this.sendToChannel(this.channels.error, null, embed);
@@ -956,17 +660,10 @@ class DiscordLogger {
             error: 0xff0000
         };
         
-        const fields = [
-            { name: '📝 Message', value: message, inline: false },
-            { name: '🕐 Time', value: new Date().toLocaleString('en-IN'), inline: true }
-        ];
-        
         const embed = this.createEmbed(
-            '🔧 System Notification',
-            `System ${type} notification`,
-            colors[type] || 0x3498db,
-            fields,
-            `Type: ${type.toUpperCase()}`
+            '🔧 System',
+            message,
+            colors[type] || 0x3498db
         );
         
         if (this.ready) {
@@ -981,18 +678,15 @@ class DiscordLogger {
     async logBackup(admin, filename, size) {
         const fields = [
             { name: '👤 Admin', value: admin.username, inline: true },
-            { name: '🆔 Admin ID', value: admin.id?.toString() || 'N/A', inline: true },
-            { name: '📁 Filename', value: filename, inline: true },
-            { name: '📊 Size', value: `${(size / 1024).toFixed(2)} KB`, inline: true },
-            { name: '🕐 Created', value: new Date().toLocaleString('en-IN'), inline: true }
+            { name: '📁 File', value: filename, inline: true },
+            { name: '📊 Size', value: `${(size / 1024).toFixed(2)} KB`, inline: true }
         ];
         
         const embed = this.createEmbed(
-            '💾 Database Backup',
-            `Backup created by **${admin.username}**`,
+            '💾 Backup Created',
+            `Backup by **${admin.username}**`,
             0x00ff00,
-            fields,
-            'Backup Created'
+            fields
         );
         
         await this.sendToChannel(this.channels.backup, null, embed);
@@ -1009,23 +703,8 @@ class DiscordLogger {
             } : null,
             guilds: this.client.guilds.cache.size,
             reconnectAttempts: this.reconnectAttempts,
-            maxReconnectAttempts: this.maxReconnectAttempts,
-            queuedMessages: this.messageQueue.length,
-            uptime: process.uptime()
+            queuedMessages: this.messageQueue.length
         };
-    }
-
-    async testConnection() {
-        return this.ready;
-    }
-
-    // Clean up on shutdown
-    shutdown() {
-        console.log('🛑 Shutting down Discord bot...');
-        this.stopHeartbeat();
-        if (this.client) {
-            this.client.destroy();
-        }
     }
 }
 

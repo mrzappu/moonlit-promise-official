@@ -12,7 +12,7 @@ async function setupDatabase() {
     // Enable foreign keys
     await db.exec('PRAGMA foreign_keys = ON;');
 
-    // Create tables (with IF NOT EXISTS)
+    // Create tables
     await db.exec(`
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -151,7 +151,7 @@ async function setupDatabase() {
             discount_value DECIMAL(10,2),
             min_order_amount DECIMAL(10,2),
             max_discount DECIMAL(10,2),
-            valid_from DATETIME,
+            valid_from DATETIME DEFAULT CURRENT_TIMESTAMP,
             valid_until DATETIME,
             usage_limit INTEGER,
             used_count INTEGER DEFAULT 0,
@@ -165,12 +165,15 @@ async function setupDatabase() {
     
     if (!userColumns.includes('login_attempts')) {
         await db.exec("ALTER TABLE users ADD COLUMN login_attempts INTEGER DEFAULT 0;");
+        console.log('✅ Added login_attempts column to users');
     }
     if (!userColumns.includes('locked_until')) {
         await db.exec("ALTER TABLE users ADD COLUMN locked_until DATETIME;");
+        console.log('✅ Added locked_until column to users');
     }
     if (!userColumns.includes('phone')) {
         await db.exec("ALTER TABLE users ADD COLUMN phone TEXT;");
+        console.log('✅ Added phone column to users');
     }
 
     // Check and add missing columns to orders table
@@ -179,12 +182,15 @@ async function setupDatabase() {
     
     if (!orderColumns.includes('city')) {
         await db.exec("ALTER TABLE orders ADD COLUMN city TEXT;");
+        console.log('✅ Added city column to orders');
     }
     if (!orderColumns.includes('pincode')) {
         await db.exec("ALTER TABLE orders ADD COLUMN pincode TEXT;");
+        console.log('✅ Added pincode column to orders');
     }
     if (!orderColumns.includes('notes')) {
         await db.exec("ALTER TABLE orders ADD COLUMN notes TEXT;");
+        console.log('✅ Added notes column to orders');
     }
 
     // Check and add missing columns to user_activity table
@@ -193,12 +199,14 @@ async function setupDatabase() {
     
     if (!activityColumns.includes('user_agent')) {
         await db.exec("ALTER TABLE user_activity ADD COLUMN user_agent TEXT;");
+        console.log('✅ Added user_agent column to user_activity');
     }
     if (!activityColumns.includes('details')) {
         await db.exec("ALTER TABLE user_activity ADD COLUMN details TEXT;");
+        console.log('✅ Added details column to user_activity');
     }
 
-    // Insert default categories - FIXED with INSERT OR IGNORE
+    // Insert default categories
     const defaultCategories = [
         ['T-Shirts', 'Adidas'],
         ['T-Shirts', 'Puma'],
@@ -224,7 +232,7 @@ async function setupDatabase() {
     }
     console.log('✅ Categories checked/added');
 
-    // Insert sample products - FIXED with INSERT OR IGNORE based on name
+    // Insert sample products
     const sampleProducts = [
         // Adidas Products
         ['Adidas Essential T-Shirt', 'Classic adidas t-shirt for everyday wear. Made with soft cotton fabric for maximum comfort.', 29.99, 'T-Shirts', 'Adidas', '/images/adidas-tshirt.jpg', 50],
@@ -269,13 +277,18 @@ async function setupDatabase() {
     }
     console.log('✅ Products checked/added');
 
-    // Insert sample coupons - FIXED with INSERT OR IGNORE
+    // Insert sample coupons - FIXED: Using JavaScript Date objects instead of date()
+    const now = new Date().toISOString();
+    const thirtyDaysLater = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    const sixtyDaysLater = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString();
+    const sevenDaysLater = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
     const sampleCoupons = [
-        ['WELCOME10', 'percentage', 10, 0, 100, date('now'), date('now', '+30 days'), 100],
-        ['SAVE20', 'percentage', 20, 500, 200, date('now'), date('now', '+30 days'), 50],
-        ['FREESHIP', 'fixed', 50, 0, 50, date('now'), date('now', '+30 days'), 200],
-        ['SUMMER25', 'percentage', 25, 1000, 300, date('now'), date('now', '+60 days'), 100],
-        ['FLASH50', 'percentage', 50, 2000, 500, date('now'), date('now', '+7 days'), 20]
+        ['WELCOME10', 'percentage', 10, 0, 100, now, thirtyDaysLater, 100],
+        ['SAVE20', 'percentage', 20, 500, 200, now, thirtyDaysLater, 50],
+        ['FREESHIP', 'fixed', 50, 0, 50, now, thirtyDaysLater, 200],
+        ['SUMMER25', 'percentage', 25, 1000, 300, now, sixtyDaysLater, 100],
+        ['FLASH50', 'percentage', 50, 2000, 500, now, sevenDaysLater, 20]
     ];
 
     for (const coupon of sampleCoupons) {
@@ -312,6 +325,8 @@ async function setupDatabase() {
         CREATE INDEX IF NOT EXISTS idx_user_activity_user_id ON user_activity(user_id);
         CREATE INDEX IF NOT EXISTS idx_password_resets_token ON password_resets(token);
         CREATE INDEX IF NOT EXISTS idx_coupons_code ON coupons(code);
+        CREATE INDEX IF NOT EXISTS idx_wishlist_user_id ON wishlist(user_id);
+        CREATE INDEX IF NOT EXISTS idx_reviews_product_id ON reviews(product_id);
     `);
 
     console.log('✅ Database setup complete');

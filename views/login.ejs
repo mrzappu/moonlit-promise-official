@@ -36,7 +36,7 @@
         .login-header {
             background: var(--primary-color);
             color: white;
-            padding: 40px 30px;
+            padding: 30px 30px;
             text-align: center;
         }
         
@@ -49,24 +49,30 @@
         .login-header p {
             margin: 10px 0 0;
             opacity: 0.8;
+            font-size: 0.95rem;
         }
         
         .login-body {
-            padding: 40px 30px;
+            padding: 30px 30px;
         }
         
         .form-group {
-            margin-bottom: 25px;
+            margin-bottom: 20px;
             position: relative;
         }
         
-        .form-group i {
+        .input-group {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        
+        .input-group i {
             position: absolute;
             left: 15px;
-            top: 50%;
-            transform: translateY(-50%);
             color: #999;
             font-size: 1.1rem;
+            z-index: 1;
         }
         
         .form-control {
@@ -76,6 +82,8 @@
             border-radius: 30px;
             font-size: 1rem;
             transition: all 0.3s;
+            height: 48px;
+            box-sizing: border-box;
         }
         
         .form-control:focus {
@@ -96,6 +104,11 @@
             cursor: pointer;
             transition: all 0.3s;
             margin-bottom: 15px;
+            height: 52px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
         }
         
         .btn-login:hover {
@@ -114,11 +127,12 @@
             width: 100%;
             cursor: pointer;
             transition: all 0.3s;
-            display: inline-flex;
+            display: flex;
             align-items: center;
             justify-content: center;
             gap: 10px;
             text-decoration: none;
+            height: 52px;
         }
         
         .btn-discord:hover {
@@ -176,10 +190,26 @@
             color: var(--secondary-color);
         }
         
+        .forgot-password {
+            text-align: right;
+            margin-top: 5px;
+            font-size: 0.9rem;
+        }
+        
+        .forgot-password a {
+            color: #999;
+            text-decoration: none;
+        }
+        
+        .forgot-password a:hover {
+            color: var(--accent-color);
+        }
+        
         .alert {
-            border-radius: 10px;
-            padding: 12px 15px;
+            border-radius: 30px;
+            padding: 12px 20px;
             margin-bottom: 20px;
+            font-size: 0.95rem;
         }
         
         .alert-danger {
@@ -192,22 +222,6 @@
             background: #efe;
             color: #3c3;
             border: 1px solid #cfc;
-        }
-        
-        .back-to-home {
-            text-align: center;
-            margin-top: 20px;
-        }
-        
-        .back-to-home a {
-            color: white;
-            text-decoration: none;
-            opacity: 0.8;
-            font-size: 0.9rem;
-        }
-        
-        .back-to-home a:hover {
-            opacity: 1;
         }
     </style>
 </head>
@@ -235,17 +249,24 @@
             
             <form action="/login" method="POST">
                 <div class="form-group">
-                    <i class="fas fa-user"></i>
-                    <input type="text" class="form-control" name="username" placeholder="Username" required>
+                    <div class="input-group">
+                        <i class="fas fa-user"></i>
+                        <input type="text" class="form-control" name="username" placeholder="Username or Email" required>
+                    </div>
                 </div>
                 
                 <div class="form-group">
-                    <i class="fas fa-lock"></i>
-                    <input type="password" class="form-control" name="password" placeholder="Password" required>
+                    <div class="input-group">
+                        <i class="fas fa-lock"></i>
+                        <input type="password" class="form-control" name="password" placeholder="Password" required>
+                    </div>
+                    <div class="forgot-password">
+                        <a href="/forgot-password">Forgot password?</a>
+                    </div>
                 </div>
                 
                 <button type="submit" class="btn-login">
-                    <i class="fas fa-sign-in-alt me-2"></i>Login
+                    <i class="fas fa-sign-in-alt"></i> Login
                 </button>
             </form>
             
@@ -261,10 +282,6 @@
                 Don't have an account? <a href="/register">Register here</a>
             </div>
         </div>
-    </div>
-    
-    <div class="back-to-home">
-        <a href="/"><i class="fas fa-arrow-left me-2"></i>Back to Home</a>
     </div>
 </body>
 </html>

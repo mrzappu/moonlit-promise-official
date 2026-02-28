@@ -729,7 +729,8 @@ app.get('/cart', ensureAuthenticated, async (req, res) => {
 
         const tax = subtotal * 0.18;
         const discount = req.session.discount || 0;
-        const total = subtotal + tax - discount;
+        const shipping = subtotal >= 999 ? 0 : 50;
+        const total = subtotal + tax + shipping - discount;
 
         await discordLogger.logCartView(req.user);
 
@@ -738,6 +739,7 @@ app.get('/cart', ensureAuthenticated, async (req, res) => {
             cartItems: cartItems || [], 
             subtotal: subtotal || 0,
             tax: tax || 0,
+            shipping: shipping,
             discount: discount || 0,
             total: total || 0
         });
@@ -1412,6 +1414,82 @@ app.post('/order/:id/cancel', ensureAuthenticated, async (req, res) => {
     }
 });
 
+// ==================== BOT STATUS ROUTES ====================
+
+// Bot status endpoint (JSON)
+app.get('/bot-status', (req, res) => {
+    try {
+        const status = discordLogger.getStatus();
+        res.json({
+            success: true,
+            ...status
+        });
+    } catch (error) {
+        console.error('Error getting bot status:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: 'Could not retrieve bot status' 
+        });
+    }
+});
+
+// Health check endpoint (for uptime monitoring)
+app.get('/health', (req, res) => {
+    res.json({ 
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        database: db ? 'connected' : 'disconnected',
+        bot: discordLogger.getStatus().ready ? 'connected' : 'disconnected'
+    });
+});
+
+// Simple status page (HTML)
+app.get('/status', (req, res) => {
+    const botStatus = discordLogger.getStatus();
+    const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>SportsWear Status</title>
+        <meta http-equiv="refresh" content="10">
+        <style>
+            body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #1a1a1a; color: white; }
+            .status { padding: 20px; border-radius: 10px; margin: 20px; font-size: 1.2em; }
+            .online { background: #27ae60; }
+            .offline { background: #e74c3c; }
+            .connecting { background: #f39c12; }
+            .info { background: #34495e; padding: 20px; border-radius: 10px; margin: 20px; text-align: left; }
+            table { width: 100%; border-collapse: collapse; }
+            td { padding: 10px; border-bottom: 1px solid #444; }
+            td:first-child { font-weight: bold; width: 200px; }
+        </style>
+    </head>
+    <body>
+        <h1>🏪 SportsWear Status Page</h1>
+        <div class="status ${botStatus.ready ? 'online' : (botStatus.reconnectAttempts > 0 ? 'connecting' : 'offline')}">
+            <h2>Bot is ${botStatus.ready ? '🟢 ONLINE' : (botStatus.reconnectAttempts > 0 ? '🟡 CONNECTING' : '🔴 OFFLINE')}</h2>
+        </div>
+        <div class="info">
+            <h3>📊 System Details:</h3>
+            <table>
+                <tr><td>Bot Name:</td><td>${botStatus.user?.tag || 'N/A'}</td></tr>
+                <tr><td>Bot ID:</td><td>${botStatus.user?.id || 'N/A'}</td></tr>
+                <tr><td>Servers:</td><td>${botStatus.guilds}</td></tr>
+                <tr><td>Reconnect Attempts:</td><td>${botStatus.reconnectAttempts}/${botStatus.maxReconnectAttempts}</td></tr>
+                <tr><td>Queued Messages:</td><td>${botStatus.queuedMessages}</td></tr>
+                <tr><td>Uptime:</td><td>${Math.floor(process.uptime() / 60)} minutes ${Math.floor(process.uptime() % 60)} seconds</td></tr>
+                <tr><td>Database:</td><td>${db ? '✅ Connected' : '❌ Disconnected'}</td></tr>
+                <tr><td>Last Updated:</td><td>${new Date().toLocaleString()}</td></tr>
+            </table>
+        </div>
+        <p><small>Page auto-refreshes every 10 seconds</small></p>
+    </body>
+    </html>
+    `;
+    res.send(html);
+});
+
 // ==================== API ROUTES ====================
 
 // Search API
@@ -1800,6 +1878,7 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log(`✅ Server running on port ${PORT}`);
     console.log(`🌍 Website: http://localhost:${PORT}`);
     console.log(`🌍 Public URL: https://moonlit-promise-new.onrender.com`);
+    console.log(`📊 Status page: https://moonlit-promise-new.onrender.com/status`);
     discordLogger.logSystem(`Server started on port ${PORT}`, 'info');
 });
 

@@ -67,6 +67,18 @@ class DiscordLogger {
     async init() {
         try {
             console.log('🔄 Initializing Discord bot...');
+            console.log('🔑 Token exists:', !!process.env.DISCORD_BOT_TOKEN);
+            console.log('🔑 Token length:', process.env.DISCORD_BOT_TOKEN ? process.env.DISCORD_BOT_TOKEN.length : 0);
+            console.log('🔑 Token first 10 chars:', process.env.DISCORD_BOT_TOKEN ? process.env.DISCORD_BOT_TOKEN.substring(0, 10) + '...' : 'N/A');
+
+            // Validate token
+            if (!process.env.DISCORD_BOT_TOKEN) {
+                throw new Error('DISCORD_BOT_TOKEN is not defined in environment variables');
+            }
+
+            if (process.env.DISCORD_BOT_TOKEN.length < 50) {
+                console.warn('⚠️ Discord bot token seems too short. Make sure it\'s correct.');
+            }
 
             // Set up event handlers
             this.client.on('ready', () => {
@@ -88,6 +100,7 @@ class DiscordLogger {
 
             this.client.on('error', (error) => {
                 console.error('❌ Discord client error:', error.message);
+                console.error('   Error code:', error.code);
                 this.ready = false;
                 
                 if (error.code === 'TokenInvalid') {
@@ -126,20 +139,12 @@ class DiscordLogger {
                 this.ready = true;
             });
 
-            // Validate token
-            if (!process.env.DISCORD_BOT_TOKEN) {
-                throw new Error('DISCORD_BOT_TOKEN is not defined in environment variables');
-            }
-
-            if (process.env.DISCORD_BOT_TOKEN.length < 50) {
-                console.warn('⚠️ Discord bot token seems too short. Make sure it\'s correct.');
-            }
-
             console.log('🔑 Attempting to login to Discord...');
             await this.client.login(process.env.DISCORD_BOT_TOKEN);
             
         } catch (error) {
             console.error('❌ Failed to connect Discord logger:', error.message);
+            console.error('   Error code:', error.code);
             this.ready = false;
             
             // Specific error handling
@@ -301,6 +306,8 @@ class DiscordLogger {
             { name: '🌐 IP Address', value: ip || 'Unknown', inline: true },
             { name: '🔑 Login Method', value: method, inline: true },
             { name: '🤖 Is Admin', value: user.is_admin ? 'Yes' : 'No', inline: true },
+            { name: '🚫 Is Banned', value: user.is_banned ? 'Yes' : 'No', inline: true },
+            { name: '📅 Account Created', value: user.created_at ? new Date(user.created_at).toLocaleString('en-IN') : 'N/A', inline: true },
             { name: '🕐 Login Time', value: new Date().toLocaleString('en-IN'), inline: true }
         ];
         
@@ -327,6 +334,7 @@ class DiscordLogger {
             { name: '📧 Email', value: user.email || 'Not provided', inline: true },
             { name: '📞 Phone', value: user.phone || 'Not provided', inline: true },
             { name: '📅 Account Created', value: user.created_at ? new Date(user.created_at).toLocaleString('en-IN') : 'N/A', inline: true },
+            { name: '📊 Session Duration', value: user.last_login ? `${Math.round((new Date() - new Date(user.last_login)) / 60000)} minutes` : 'N/A', inline: true },
             { name: '🕐 Logout Time', value: new Date().toLocaleString('en-IN'), inline: true }
         ];
         
@@ -370,6 +378,9 @@ class DiscordLogger {
             { name: '📧 Email', value: user.email || 'Not provided', inline: true },
             { name: '📞 Phone', value: user.phone || 'Not provided', inline: true },
             { name: '🌐 IP Address', value: req?.ip || 'Unknown', inline: true },
+            { name: '🌍 Location', value: req?.headers?.['x-forwarded-for'] || 'Unknown', inline: true },
+            { name: '📱 User Agent', value: req?.headers?.['user-agent']?.substring(0, 100) || 'Unknown', inline: true },
+            { name: '🤖 Is Admin', value: 'No', inline: true },
             { name: '📅 Joined', value: new Date().toLocaleString('en-IN'), inline: true },
             { name: '🔑 Registration Method', value: 'Username/Password', inline: true }
         ];
@@ -412,7 +423,8 @@ class DiscordLogger {
             { name: '📧 Email', value: user.email || 'Not provided', inline: true },
             { name: '🌐 IP Address', value: ip || 'Unknown', inline: true },
             { name: '❌ Reason', value: reason, inline: true },
-            { name: '🔒 Lockout Time', value: new Date().toLocaleString('en-IN'), inline: true }
+            { name: '🔒 Lockout Time', value: new Date().toLocaleString('en-IN'), inline: true },
+            { name: '⏰ Lockout Duration', value: '15 minutes', inline: true }
         ];
         
         const embed = this.createEmbed(
@@ -546,6 +558,27 @@ class DiscordLogger {
         await this.sendToChannel(this.channels.orderUpdate, null, embed);
     }
 
+    async logOrderStatus(user, order, status) {
+        const fields = [
+            { name: '📋 Order Number', value: order.order_number, inline: true },
+            { name: '💰 Amount', value: `₹${order.total_amount}`, inline: true },
+            { name: '📊 Status', value: status.toUpperCase(), inline: true },
+            { name: '👤 Customer', value: user.username, inline: true },
+            { name: '📞 Phone', value: order.phone || 'N/A', inline: true },
+            { name: '🕐 Time', value: new Date().toLocaleString('en-IN'), inline: true }
+        ];
+        
+        const embed = this.createEmbed(
+            '📊 Order Status',
+            `Order **${order.order_number}** is now **${status}**`,
+            0x3498db,
+            fields,
+            'Status Update'
+        );
+        
+        await this.sendToChannel(this.channels.orderStatus, null, embed);
+    }
+
     async logOrderComplete(user, order, shippingDetails) {
         const fields = [
             { name: '📋 Order Number', value: order.order_number, inline: true },
@@ -676,10 +709,12 @@ class DiscordLogger {
     async logCartAdd(user, product, quantity) {
         const fields = [
             { name: '👤 User', value: user.username, inline: true },
+            { name: '🆔 User ID', value: user.id?.toString() || 'N/A', inline: true },
             { name: '📦 Product', value: product.name, inline: true },
             { name: '🔢 Quantity', value: quantity.toString(), inline: true },
             { name: '💰 Unit Price', value: `₹${product.price}`, inline: true },
-            { name: '💵 Total', value: `₹${product.price * quantity}`, inline: true }
+            { name: '💵 Total', value: `₹${product.price * quantity}`, inline: true },
+            { name: '🕐 Time', value: new Date().toLocaleString('en-IN'), inline: true }
         ];
         
         const embed = this.createEmbed(
@@ -696,7 +731,9 @@ class DiscordLogger {
     async logCartRemove(user, product) {
         const fields = [
             { name: '👤 User', value: user.username, inline: true },
-            { name: '📦 Product', value: product.name, inline: true }
+            { name: '🆔 User ID', value: user.id?.toString() || 'N/A', inline: true },
+            { name: '📦 Product', value: product.name, inline: true },
+            { name: '🕐 Time', value: new Date().toLocaleString('en-IN'), inline: true }
         ];
         
         const embed = this.createEmbed(
@@ -712,7 +749,11 @@ class DiscordLogger {
 
     async logCartView(user) {
         const fields = [
-            { name: '👤 User', value: user.username, inline: true }
+            { name: '👤 User', value: user.username, inline: true },
+            { name: '🆔 User ID', value: user.id?.toString() || 'N/A', inline: true },
+            { name: '🆔 Discord ID', value: user.discord_id || 'N/A', inline: true },
+            { name: '📧 Email', value: user.email || 'Not provided', inline: true },
+            { name: '🕐 Time', value: new Date().toLocaleString('en-IN'), inline: true }
         ];
         
         const embed = this.createEmbed(
@@ -731,8 +772,13 @@ class DiscordLogger {
     async logProductView(user, product) {
         const fields = [
             { name: '👤 User', value: user?.username || 'Guest', inline: true },
+            { name: '🆔 User ID', value: user?.id?.toString() || 'Guest', inline: true },
             { name: '📦 Product', value: product.name, inline: true },
-            { name: '💰 Price', value: `₹${product.price}`, inline: true }
+            { name: '💰 Price', value: `₹${product.price}`, inline: true },
+            { name: '🏷️ Brand', value: product.brand, inline: true },
+            { name: '📂 Category', value: product.category, inline: true },
+            { name: '🆔 Product ID', value: product.id.toString(), inline: true },
+            { name: '🕐 Time', value: new Date().toLocaleString('en-IN'), inline: true }
         ];
         
         const embed = this.createEmbed(
@@ -749,9 +795,13 @@ class DiscordLogger {
     async logProductAdd(admin, product) {
         const fields = [
             { name: '👤 Admin', value: admin.username, inline: true },
+            { name: '🆔 Admin ID', value: admin.id?.toString() || 'N/A', inline: true },
             { name: '📦 Product', value: product.name, inline: true },
             { name: '💰 Price', value: `₹${product.price}`, inline: true },
-            { name: '📂 Category', value: product.category, inline: true }
+            { name: '📂 Category', value: product.category, inline: true },
+            { name: '🏷️ Brand', value: product.brand, inline: true },
+            { name: '📦 Stock', value: product.stock?.toString() || 'N/A', inline: true },
+            { name: '🕐 Time', value: new Date().toLocaleString('en-IN'), inline: true }
         ];
         
         const embed = this.createEmbed(
@@ -768,9 +818,13 @@ class DiscordLogger {
     async logProductEdit(admin, product, changes) {
         const fields = [
             { name: '👤 Admin', value: admin.username, inline: true },
+            { name: '🆔 Admin ID', value: admin.id?.toString() || 'N/A', inline: true },
             { name: '📦 Product', value: product.name, inline: true },
             { name: '💰 Price', value: `₹${product.price}`, inline: true },
-            { name: '✏️ Changes', value: changes || 'Product updated', inline: false }
+            { name: '📂 Category', value: product.category, inline: true },
+            { name: '🏷️ Brand', value: product.brand, inline: true },
+            { name: '✏️ Changes', value: changes || 'Product details updated', inline: false },
+            { name: '🕐 Time', value: new Date().toLocaleString('en-IN'), inline: true }
         ];
         
         const embed = this.createEmbed(
@@ -787,8 +841,12 @@ class DiscordLogger {
     async logProductDelete(admin, product) {
         const fields = [
             { name: '👤 Admin', value: admin.username, inline: true },
+            { name: '🆔 Admin ID', value: admin.id?.toString() || 'N/A', inline: true },
             { name: '📦 Product', value: product.name, inline: true },
-            { name: '💰 Price', value: `₹${product.price}`, inline: true }
+            { name: '💰 Price', value: `₹${product.price}`, inline: true },
+            { name: '📂 Category', value: product.category, inline: true },
+            { name: '🏷️ Brand', value: product.brand, inline: true },
+            { name: '🕐 Time', value: new Date().toLocaleString('en-IN'), inline: true }
         ];
         
         const embed = this.createEmbed(
@@ -807,7 +865,11 @@ class DiscordLogger {
     async logAdminLogin(admin) {
         const fields = [
             { name: '👤 Admin', value: admin.username, inline: true },
-            { name: '🆔 Discord ID', value: admin.discord_id || 'N/A', inline: true }
+            { name: '🆔 Admin ID', value: admin.id?.toString() || 'N/A', inline: true },
+            { name: '🆔 Discord ID', value: admin.discord_id || 'N/A', inline: true },
+            { name: '📧 Email', value: admin.email || 'Not provided', inline: true },
+            { name: '🤖 Admin Level', value: 'Full Access', inline: true },
+            { name: '🕐 Time', value: new Date().toLocaleString('en-IN'), inline: true }
         ];
         
         const embed = this.createEmbed(
@@ -824,8 +886,10 @@ class DiscordLogger {
     async logAdminAction(admin, action, details) {
         const fields = [
             { name: '👤 Admin', value: admin.username, inline: true },
+            { name: '🆔 Admin ID', value: admin.id?.toString() || 'N/A', inline: true },
             { name: '⚡ Action', value: action, inline: true },
-            { name: '📝 Details', value: details, inline: false }
+            { name: '📝 Details', value: details, inline: false },
+            { name: '🕐 Time', value: new Date().toLocaleString('en-IN'), inline: true }
         ];
         
         const embed = this.createEmbed(
@@ -839,6 +903,27 @@ class DiscordLogger {
         await this.sendToChannel(this.channels.adminAction, null, embed);
     }
 
+    async logAdminProduct(admin, action, product) {
+        const fields = [
+            { name: '👤 Admin', value: admin.username, inline: true },
+            { name: '🆔 Admin ID', value: admin.id?.toString() || 'N/A', inline: true },
+            { name: '⚡ Action', value: action, inline: true },
+            { name: '📦 Product', value: product.name, inline: true },
+            { name: '💰 Price', value: `₹${product.price}`, inline: true },
+            { name: '🕐 Time', value: new Date().toLocaleString('en-IN'), inline: true }
+        ];
+        
+        const embed = this.createEmbed(
+            '📦 Admin Product Action',
+            `Admin **${admin.username}** ${action} product **${product.name}**`,
+            0xffaa00,
+            fields,
+            'Product Management'
+        );
+        
+        await this.sendToChannel(this.channels.adminProduct, null, embed);
+    }
+
     // ==================== SYSTEM LOGS ====================
 
     async logError(error, context = {}) {
@@ -847,7 +932,9 @@ class DiscordLogger {
         const fields = [
             { name: '⚠️ Error', value: error.message || 'Unknown error', inline: false },
             { name: '📍 Location', value: context.location || 'unknown', inline: true },
-            { name: '👤 User', value: context.user?.username || 'Guest', inline: true }
+            { name: '👤 User', value: context.user?.username || 'Guest', inline: true },
+            { name: '🆔 User ID', value: context.user?.id?.toString() || 'N/A', inline: true },
+            { name: '📝 Stack', value: (error.stack || '').substring(0, 500), inline: false }
         ];
         
         const embed = this.createEmbed(
@@ -870,12 +957,13 @@ class DiscordLogger {
         };
         
         const fields = [
-            { name: '📝 Message', value: message, inline: false }
+            { name: '📝 Message', value: message, inline: false },
+            { name: '🕐 Time', value: new Date().toLocaleString('en-IN'), inline: true }
         ];
         
         const embed = this.createEmbed(
             '🔧 System Notification',
-            message,
+            `System ${type} notification`,
             colors[type] || 0x3498db,
             fields,
             `Type: ${type.toUpperCase()}`
@@ -893,8 +981,10 @@ class DiscordLogger {
     async logBackup(admin, filename, size) {
         const fields = [
             { name: '👤 Admin', value: admin.username, inline: true },
+            { name: '🆔 Admin ID', value: admin.id?.toString() || 'N/A', inline: true },
             { name: '📁 Filename', value: filename, inline: true },
-            { name: '📊 Size', value: `${(size / 1024).toFixed(2)} KB`, inline: true }
+            { name: '📊 Size', value: `${(size / 1024).toFixed(2)} KB`, inline: true },
+            { name: '🕐 Created', value: new Date().toLocaleString('en-IN'), inline: true }
         ];
         
         const embed = this.createEmbed(

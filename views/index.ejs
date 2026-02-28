@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SportsWear - Premium Sports & Custom Apparel</title>
+    <title>Sports Wear & Custom Apparel</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
@@ -11,286 +11,102 @@
             --primary-color: #2c3e50;
             --secondary-color: #e74c3c;
             --accent-color: #3498db;
-            --dark-bg: #1a252f;
-            --light-bg: #f8f9fa;
-        }
-        
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
         }
         
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--light-bg);
-            color: #333;
-            line-height: 1.6;
+            background-color: #f8f9fa;
         }
         
-        /* Navbar Styles */
         .navbar {
-            background: linear-gradient(135deg, var(--primary-color), var(--dark-bg)) !important;
-            box-shadow: 0 2px 20px rgba(0,0,0,0.2);
-            padding: 1rem 0;
+            background-color: var(--primary-color) !important;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
         
         .navbar-brand {
-            font-weight: 800;
-            font-size: 1.8rem;
+            font-weight: 700;
+            font-size: 1.5rem;
             color: white !important;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-        
-        .navbar-brand i {
-            color: var(--secondary-color);
-            margin-right: 10px;
         }
         
         .nav-link {
-            color: rgba(255,255,255,0.9) !important;
-            font-weight: 600;
-            margin: 0 10px;
-            transition: all 0.3s;
-            position: relative;
-        }
-        
-        .nav-link:after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 0;
-            height: 2px;
-            background: var(--secondary-color);
-            transition: width 0.3s;
-        }
-        
-        .nav-link:hover:after {
-            width: 80%;
+            color: rgba(255,255,255,0.8) !important;
+            font-weight: 500;
+            transition: color 0.3s;
         }
         
         .nav-link:hover {
             color: white !important;
         }
         
-        /* Hero Section */
         .hero-section {
-            background: linear-gradient(135deg, var(--primary-color), var(--dark-bg));
+            background: linear-gradient(135deg, var(--primary-color), #34495e);
             color: white;
-            padding: 100px 0;
+            padding: 80px 0;
             text-align: center;
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .hero-section:before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" opacity="0.1"><path d="M20 20 L80 20 L80 80 L20 80 Z" fill="none" stroke="white" stroke-width="2"/><circle cx="50" cy="50" r="20" fill="none" stroke="white" stroke-width="2"/></svg>');
-            background-size: 50px;
-            animation: move 20s linear infinite;
-        }
-        
-        @keyframes move {
-            0% { transform: translateX(0) translateY(0); }
-            100% { transform: translateX(50px) translateY(50px); }
+            margin-bottom: 50px;
         }
         
         .hero-title {
-            font-size: 4rem;
-            font-weight: 800;
+            font-size: 3rem;
+            font-weight: 700;
             margin-bottom: 20px;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            position: relative;
-            z-index: 1;
-        }
-        
-        .hero-title span {
-            color: var(--secondary-color);
         }
         
         .hero-subtitle {
-            font-size: 1.3rem;
-            opacity: 0.95;
-            margin-bottom: 40px;
-            max-width: 800px;
-            margin-left: auto;
-            margin-right: auto;
-            position: relative;
-            z-index: 1;
-        }
-        
-        .btn-hero {
-            background: var(--secondary-color);
-            color: white;
-            border: none;
-            padding: 15px 50px;
-            border-radius: 50px;
-            font-weight: 700;
             font-size: 1.2rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            transition: all 0.3s;
-            position: relative;
-            z-index: 1;
-            box-shadow: 0 10px 20px rgba(231, 76, 60, 0.3);
+            opacity: 0.9;
+            margin-bottom: 30px;
         }
         
-        .btn-hero:hover {
-            background: #c0392b;
-            transform: translateY(-3px);
-            box-shadow: 0 15px 30px rgba(231, 76, 60, 0.4);
-            color: white;
-        }
-        
-        /* Brand Section */
         .brand-section {
             background: white;
-            padding: 80px 0;
+            padding: 50px 0;
             margin-bottom: 50px;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.05);
         }
         
-        .section-title {
+        .brand-logo {
             text-align: center;
-            font-size: 3rem;
-            font-weight: 800;
-            color: var(--primary-color);
-            margin-bottom: 60px;
-            position: relative;
-            text-transform: uppercase;
-        }
-        
-        .section-title:after {
-            content: '';
-            display: block;
-            width: 100px;
-            height: 4px;
-            background: linear-gradient(to right, var(--secondary-color), var(--accent-color));
-            margin: 20px auto;
-            border-radius: 2px;
-        }
-        
-        .brand-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 30px;
-            max-width: 1000px;
-            margin: 0 auto;
-        }
-        
-        .brand-card {
-            background: white;
-            border-radius: 20px;
-            padding: 40px 20px;
-            text-align: center;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-            transition: all 0.3s;
-            cursor: pointer;
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .brand-card:before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 5px;
-            background: linear-gradient(to right, var(--secondary-color), var(--accent-color));
-            transform: translateX(-100%);
+            padding: 20px;
             transition: transform 0.3s;
         }
         
-        .brand-card:hover:before {
-            transform: translateX(0);
+        .brand-logo:hover {
+            transform: scale(1.1);
         }
         
-        .brand-card:hover {
-            transform: translateY(-10px);
-            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
-        }
-        
-        .brand-card img {
+        .brand-logo img {
             max-width: 150px;
             height: auto;
             filter: grayscale(100%);
             opacity: 0.7;
             transition: all 0.3s;
-            margin-bottom: 20px;
         }
         
-        .brand-card:hover img {
+        .brand-logo:hover img {
             filter: grayscale(0);
             opacity: 1;
-            transform: scale(1.1);
-        }
-        
-        .brand-card h3 {
-            color: var(--primary-color);
-            font-weight: 700;
-            margin: 0;
-        }
-        
-        /* Products Section */
-        .products-section {
-            padding: 50px 0;
-        }
-        
-        .product-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 30px;
-            margin-top: 40px;
         }
         
         .product-card {
             background: white;
-            border-radius: 20px;
+            border-radius: 15px;
             overflow: hidden;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
             transition: all 0.3s;
-            position: relative;
+            margin-bottom: 30px;
             height: 100%;
-            display: flex;
-            flex-direction: column;
         }
         
         .product-card:hover {
             transform: translateY(-10px);
-            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
-        }
-        
-        .product-badge {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            background: var(--secondary-color);
-            color: white;
-            padding: 8px 20px;
-            border-radius: 30px;
-            font-size: 0.9rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            z-index: 2;
-            box-shadow: 0 5px 15px rgba(231, 76, 60, 0.3);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.15);
         }
         
         .product-image {
             height: 300px;
             overflow: hidden;
             position: relative;
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
         }
         
         .product-image img {
@@ -304,276 +120,132 @@
             transform: scale(1.1);
         }
         
+        .product-badge {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: var(--secondary-color);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 25px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            z-index: 2;
+        }
+        
         .product-info {
-            padding: 25px;
-            flex-grow: 1;
-            display: flex;
-            flex-direction: column;
+            padding: 20px;
         }
         
         .product-category {
             color: var(--accent-color);
             font-size: 0.9rem;
-            font-weight: 700;
+            font-weight: 600;
             text-transform: uppercase;
-            letter-spacing: 1px;
             margin-bottom: 10px;
         }
         
         .product-title {
-            font-size: 1.3rem;
-            font-weight: 700;
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 10px;
             color: var(--primary-color);
-            margin-bottom: 15px;
-            line-height: 1.4;
-            min-height: 3.6rem;
         }
         
         .product-price {
-            font-size: 1.8rem;
-            font-weight: 800;
-            color: var(--secondary-color);
-            margin-bottom: 20px;
-        }
-        
-        .btn-product {
-            background: transparent;
-            color: var(--primary-color);
-            border: 2px solid var(--primary-color);
-            padding: 12px 25px;
-            border-radius: 30px;
+            font-size: 1.5rem;
             font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            transition: all 0.3s;
-            text-decoration: none;
-            display: inline-block;
-            text-align: center;
-            margin-top: auto;
+            color: var(--secondary-color);
+            margin-bottom: 15px;
         }
         
-        .btn-product:hover {
+        .btn-custom {
             background: var(--primary-color);
             color: white;
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(44, 62, 80, 0.3);
+            border: none;
+            padding: 10px 25px;
+            border-radius: 25px;
+            font-weight: 600;
+            transition: all 0.3s;
+            width: 100%;
         }
         
-        /* Categories Section */
-        .categories-section {
-            padding: 80px 0;
-            background: linear-gradient(135deg, var(--primary-color), var(--dark-bg));
+        .btn-custom:hover {
+            background: var(--secondary-color);
+            transform: translateY(-2px);
+        }
+        
+        .section-title {
+            text-align: center;
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 50px;
+            position: relative;
+        }
+        
+        .section-title:after {
+            content: '';
+            display: block;
+            width: 100px;
+            height: 4px;
+            background: var(--secondary-color);
+            margin: 20px auto;
+            border-radius: 2px;
+        }
+        
+        .footer {
+            background: var(--primary-color);
             color: white;
+            padding: 50px 0 20px;
             margin-top: 50px;
         }
         
-        .categories-section .section-title {
-            color: white;
-        }
-        
-        .categories-section .section-title:after {
-            background: linear-gradient(to right, white, var(--accent-color));
-        }
-        
-        .category-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 30px;
-            max-width: 1000px;
-            margin: 0 auto;
-        }
-        
-        .category-card {
-            background: rgba(255,255,255,0.1);
-            backdrop-filter: blur(10px);
-            border-radius: 20px;
-            padding: 40px 20px;
-            text-align: center;
-            transition: all 0.3s;
-            cursor: pointer;
-            border: 1px solid rgba(255,255,255,0.1);
-        }
-        
-        .category-card:hover {
-            background: rgba(255,255,255,0.2);
-            transform: translateY(-10px);
-            border-color: var(--secondary-color);
-        }
-        
-        .category-card i {
-            font-size: 3.5rem;
-            color: var(--secondary-color);
-            margin-bottom: 20px;
-        }
-        
-        .category-card h4 {
-            font-size: 1.5rem;
-            font-weight: 700;
-            margin-bottom: 0;
-            color: white;
-        }
-        
-        /* Footer */
-        .footer {
-            background: linear-gradient(135deg, var(--dark-bg), #0f1a24);
-            color: white;
-            padding: 80px 0 20px;
-            margin-top: 0;
-        }
-        
-        .footer h5 {
-            color: white;
-            font-weight: 700;
-            margin-bottom: 25px;
-            font-size: 1.3rem;
-            position: relative;
-            padding-bottom: 10px;
-        }
-        
-        .footer h5:after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 50px;
-            height: 3px;
-            background: var(--secondary-color);
-        }
-        
         .footer a {
-            color: rgba(255,255,255,0.7);
+            color: rgba(255,255,255,0.8);
             text-decoration: none;
-            transition: all 0.3s;
-            display: inline-block;
-            margin-bottom: 10px;
+            transition: color 0.3s;
         }
         
         .footer a:hover {
-            color: var(--secondary-color);
-            transform: translateX(5px);
-        }
-        
-        .footer i {
-            margin-right: 10px;
-            color: var(--secondary-color);
-        }
-        
-        .social-links {
-            display: flex;
-            gap: 15px;
-            margin-top: 20px;
-        }
-        
-        .social-links a {
-            width: 40px;
-            height: 40px;
-            background: rgba(255,255,255,0.1);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.3s;
-            margin-bottom: 0;
-        }
-        
-        .social-links a:hover {
-            background: var(--secondary-color);
-            transform: translateY(-5px);
-        }
-        
-        .social-links a:hover i {
             color: white;
         }
         
-        .social-links i {
-            margin-right: 0;
-            font-size: 1.2rem;
-        }
-        
-        .footer-bottom {
-            text-align: center;
-            padding-top: 40px;
-            margin-top: 40px;
-            border-top: 1px solid rgba(255,255,255,0.1);
-        }
-        
-        /* Discord Button */
         .discord-login {
             background: #5865F2;
             color: white;
             border: none;
-            padding: 12px 30px;
-            border-radius: 30px;
+            padding: 10px 25px;
+            border-radius: 25px;
             font-weight: 600;
             transition: all 0.3s;
             display: inline-flex;
             align-items: center;
             gap: 10px;
-            text-decoration: none;
-            box-shadow: 0 5px 15px rgba(88, 101, 242, 0.3);
         }
         
         .discord-login:hover {
             background: #4752c4;
             transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(88, 101, 242, 0.4);
+            color: white;
+        }
+        
+        .discord-login i {
+            font-size: 1.2rem;
+        }
+        
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 10px;
             color: white;
         }
         
         .user-avatar {
-            width: 40px;
-            height: 40px;
+            width: 35px;
+            height: 35px;
             border-radius: 50%;
-            border: 3px solid var(--secondary-color);
-            object-fit: cover;
-        }
-        
-        .cart-badge {
-            background: var(--secondary-color);
-            color: white;
-            border-radius: 50%;
-            padding: 2px 6px;
-            font-size: 0.7rem;
-            position: absolute;
-            top: -5px;
-            right: -10px;
-        }
-        
-        /* Responsive */
-        @media (max-width: 992px) {
-            .hero-title {
-                font-size: 3rem;
-            }
-            
-            .brand-grid,
-            .category-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-        }
-        
-        @media (max-width: 768px) {
-            .hero-title {
-                font-size: 2.5rem;
-            }
-            
-            .section-title {
-                font-size: 2.2rem;
-            }
-            
-            .product-grid {
-                grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            }
-        }
-        
-        @media (max-width: 576px) {
-            .brand-grid,
-            .category-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .hero-title {
-                font-size: 2rem;
-            }
+            border: 2px solid white;
         }
     </style>
 </head>
@@ -582,7 +254,7 @@
     <nav class="navbar navbar-expand-lg navbar-dark sticky-top">
         <div class="container">
             <a class="navbar-brand" href="/">
-                <i class="fas fa-tshirt"></i> SPORTSWEAR
+                <i class="fas fa-tshirt me-2"></i>SportsWear
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
@@ -590,63 +262,61 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="/">HOME</a>
+                        <a class="nav-link" href="/">Home</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="/shop">SHOP</a>
+                        <a class="nav-link" href="/shop">Shop</a>
                     </li>
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="brandsDropdown" role="button" data-bs-toggle="dropdown">
-                            BRANDS
+                            Brands
                         </a>
                         <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="/shop?brand=Adidas">ADIDAS</a></li>
-                            <li><a class="dropdown-item" href="/shop?brand=Puma">PUMA</a></li>
-                            <li><a class="dropdown-item" href="/shop?brand=Under Armour">UNDER ARMOUR</a></li>
-                            <li><a class="dropdown-item" href="/shop?brand=New Balance">NEW BALANCE</a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="/shop?brand=Custom">CUSTOM</a></li>
+                            <% brands.forEach(brand => { %>
+                                <li><a class="dropdown-item" href="/shop?brand=<%= brand %>"><%= brand %></a></li>
+                            <% }); %>
                         </ul>
                     </li>
                     <% if (user && user.is_admin) { %>
                         <li class="nav-item">
-                            <a class="nav-link" href="/admin">ADMIN</a>
+                            <a class="nav-link" href="/admin">Admin Panel</a>
                         </li>
                     <% } %>
                 </ul>
                 <ul class="navbar-nav">
                     <% if (user) { %>
-                        <li class="nav-item position-relative">
+                        <li class="nav-item">
                             <a class="nav-link" href="/cart">
-                                <i class="fas fa-shopping-cart"></i> CART
-                                <span id="cart-count" class="cart-badge" style="display: none;">0</span>
+                                <i class="fas fa-shopping-cart"></i> Cart
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="/history">ORDERS</a>
+                            <a class="nav-link" href="/history">
+                                <i class="fas fa-history"></i> Orders
+                            </a>
                         </li>
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle" href="#" id="profileDropdown" role="button" data-bs-toggle="dropdown">
-                                <div class="d-flex align-items-center">
+                                <div class="user-profile">
                                     <% if (user.avatar) { %>
-                                        <img src="https://cdn.discordapp.com/avatars/<%= user.discord_id %>/<%= user.avatar %>.png" class="user-avatar me-2">
+                                        <img src="https://cdn.discordapp.com/avatars/<%= user.discord_id %>/<%= user.avatar %>.png" class="user-avatar">
                                     <% } else { %>
-                                        <i class="fas fa-user-circle fa-2x me-2"></i>
+                                        <i class="fas fa-user-circle"></i>
                                     <% } %>
-                                    <span><%= user.username.toUpperCase() %></span>
+                                    <span><%= user.username %></span>
                                 </div>
                             </a>
                             <ul class="dropdown-menu dropdown-menu-end">
-                                <li><a class="dropdown-item" href="/profile"><i class="fas fa-user me-2"></i>PROFILE</a></li>
+                                <li><a class="dropdown-item" href="/profile"><i class="fas fa-user me-2"></i>Profile</a></li>
                                 <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item" href="/logout"><i class="fas fa-sign-out-alt me-2"></i>LOGOUT</a></li>
+                                <li><a class="dropdown-item" href="/logout"><i class="fas fa-sign-out-alt me-2"></i>Logout</a></li>
                             </ul>
                         </li>
                     <% } else { %>
                         <li class="nav-item">
                             <a class="nav-link" href="/auth/discord">
                                 <button class="discord-login">
-                                    <i class="fab fa-discord"></i> LOGIN WITH DISCORD
+                                    <i class="fab fa-discord"></i> Login with Discord
                                 </button>
                             </a>
                         </li>
@@ -659,101 +329,97 @@
     <!-- Hero Section -->
     <section class="hero-section">
         <div class="container">
-            <h1 class="hero-title">WELCOME TO <span>SPORTSWEAR</span></h1>
+            <h1 class="hero-title">Welcome to SportsWear</h1>
             <p class="hero-subtitle">Your premier destination for Adidas, Puma, Under Armour, New Balance, and custom apparel including Hammper style and esports gear</p>
-            <a href="/shop" class="btn btn-hero">SHOP NOW</a>
+            <a href="/shop" class="btn btn-custom btn-lg">Shop Now</a>
         </div>
     </section>
 
     <!-- Brand Section -->
     <section class="brand-section">
         <div class="container">
-            <h2 class="section-title">OUR BRANDS</h2>
-            <div class="brand-grid">
-                <a href="/shop?brand=Adidas" class="text-decoration-none">
-                    <div class="brand-card">
+            <h2 class="section-title">Our Brands</h2>
+            <div class="row">
+                <div class="col-md-3 col-6 brand-logo">
+                    <a href="/shop?brand=Adidas">
                         <img src="https://upload.wikimedia.org/wikipedia/commons/2/20/Adidas_Logo.svg" alt="Adidas">
-                        <h3>ADIDAS</h3>
-                    </div>
-                </a>
-                <a href="/shop?brand=Puma" class="text-decoration-none">
-                    <div class="brand-card">
+                    </a>
+                </div>
+                <div class="col-md-3 col-6 brand-logo">
+                    <a href="/shop?brand=Puma">
                         <img src="https://upload.wikimedia.org/wikipedia/commons/8/88/Puma_AG.svg" alt="Puma">
-                        <h3>PUMA</h3>
-                    </div>
-                </a>
-                <a href="/shop?brand=Under Armour" class="text-decoration-none">
-                    <div class="brand-card">
+                    </a>
+                </div>
+                <div class="col-md-3 col-6 brand-logo">
+                    <a href="/shop?brand=Under Armour">
                         <img src="https://upload.wikimedia.org/wikipedia/commons/2/24/Under_Armour_Logo.svg" alt="Under Armour">
-                        <h3>UNDER ARMOUR</h3>
-                    </div>
-                </a>
-                <a href="/shop?brand=New Balance" class="text-decoration-none">
-                    <div class="brand-card">
+                    </a>
+                </div>
+                <div class="col-md-3 col-6 brand-logo">
+                    <a href="/shop?brand=New Balance">
                         <img src="https://upload.wikimedia.org/wikipedia/commons/e/ea/New_Balance_logo.svg" alt="New Balance">
-                        <h3>NEW BALANCE</h3>
-                    </div>
-                </a>
+                    </a>
+                </div>
             </div>
         </div>
     </section>
 
     <!-- Featured Products -->
-    <section class="products-section">
-        <div class="container">
-            <h2 class="section-title">FEATURED PRODUCTS</h2>
-            <div class="product-grid">
-                <% if (featuredProducts && featuredProducts.length > 0) { %>
-                    <% featuredProducts.forEach(product => { %>
-                        <div class="product-card">
-                            <span class="product-badge"><%= product.brand?.toUpperCase() || 'BRAND' %></span>
-                            <div class="product-image">
-                                <img src="<%= product.image_url || '/images/default-product.jpg' %>" alt="<%= product.name %>" loading="lazy">
-                            </div>
-                            <div class="product-info">
-                                <div class="product-category"><%= product.category?.toUpperCase() || 'CATEGORY' %></div>
-                                <h3 class="product-title"><%= product.name %></h3>
-                                <div class="product-price">₹<%= Number(product.price).toFixed(2) %></div>
-                                <a href="/product/<%= product.id %>" class="btn-product">VIEW DETAILS</a>
-                            </div>
+    <section class="container">
+        <h2 class="section-title">Featured Products</h2>
+        <div class="row">
+            <% featuredProducts.forEach(product => { %>
+                <div class="col-lg-3 col-md-4 col-sm-6">
+                    <div class="product-card">
+                        <div class="product-image">
+                            <span class="product-badge"><%= product.brand %></span>
+                            <img src="<%= product.image_url %>" alt="<%= product.name %>">
                         </div>
-                    <% }); %>
-                <% } else { %>
-                    <div class="col-12 text-center py-5">
-                        <p class="text-muted">No featured products at the moment.</p>
+                        <div class="product-info">
+                            <div class="product-category"><%= product.category %></div>
+                            <h3 class="product-title"><%= product.name %></h3>
+                            <div class="product-price">₹<%= product.price %></div>
+                            <a href="/product/<%= product.id %>" class="btn btn-custom">View Details</a>
+                        </div>
                     </div>
-                <% } %>
-            </div>
+                </div>
+            <% }); %>
         </div>
     </section>
 
-    <!-- Categories Section -->
-    <section class="categories-section">
-        <div class="container">
-            <h2 class="section-title">SHOP BY CATEGORY</h2>
-            <div class="category-grid">
+    <!-- Categories -->
+    <section class="container mt-5">
+        <h2 class="section-title">Shop by Category</h2>
+        <div class="row">
+            <div class="col-md-3 col-6 mb-4">
                 <a href="/shop?category=T-Shirts" class="text-decoration-none">
-                    <div class="category-card">
-                        <i class="fas fa-tshirt"></i>
-                        <h4>T-SHIRTS</h4>
+                    <div class="card text-center p-4 category-card">
+                        <i class="fas fa-tshirt fa-3x mb-3" style="color: var(--primary-color);"></i>
+                        <h5>T-Shirts</h5>
                     </div>
                 </a>
+            </div>
+            <div class="col-md-3 col-6 mb-4">
                 <a href="/shop?category=Hoodies" class="text-decoration-none">
-                    <div class="category-card">
-                        <i class="fas fa-tshirt"></i>
-                        <h4>HOODIES</h4>
+                    <div class="card text-center p-4 category-card">
+                        <i class="fas fa-tshirt fa-3x mb-3" style="color: var(--primary-color);"></i>
+                        <h5>Hoodies</h5>
                     </div>
                 </a>
+            </div>
+            <div class="col-md-3 col-6 mb-4">
                 <a href="/shop?category=Sports Wear" class="text-decoration-none">
-                    <div class="category-card">
-                        <i class="fas fa-running"></i>
-                        <h4>SPORTS WEAR</h4>
+                    <div class="card text-center p-4 category-card">
+                        <i class="fas fa-running fa-3x mb-3" style="color: var(--primary-color);"></i>
+                        <h5>Sports Wear</h5>
                     </div>
                 </a>
+            </div>
+            <div class="col-md-3 col-6 mb-4">
                 <a href="/shop?category=Esports" class="text-decoration-none">
-                    <div class="category-card">
-                        <i class="fas fa-gamepad"></i>
-                        <h4>ESPORTS</h4>
+                    <div class="card text-center p-4 category-card">
+                        <i class="fas fa-gamepad fa-3x mb-3" style="color: var(--primary-color);"></i>
+                        <h5>Esports</h5>
                     </div>
                 </a>
             </div>
@@ -765,70 +431,33 @@
         <div class="container">
             <div class="row">
                 <div class="col-md-4 mb-4">
-                    <h5>ABOUT US</h5>
-                    <p style="color: rgba(255,255,255,0.7);">Your premier destination for premium sports wear and custom apparel. We bring you the best brands including Adidas, Puma, Under Armour, New Balance, and exclusive custom designs like Hammper style and esports merchandise.</p>
-                    <div class="social-links">
-                        <a href="#"><i class="fab fa-facebook-f"></i></a>
-                        <a href="#"><i class="fab fa-instagram"></i></a>
-                        <a href="#"><i class="fab fa-twitter"></i></a>
-                        <a href="#"><i class="fab fa-discord"></i></a>
-                    </div>
+                    <h5>About Us</h5>
+                    <p>Your one-stop shop for premium sports wear and custom apparel. We bring you the best brands and unique designs.</p>
                 </div>
-                <div class="col-md-2 mb-4">
-                    <h5>QUICK LINKS</h5>
+                <div class="col-md-4 mb-4">
+                    <h5>Quick Links</h5>
                     <ul class="list-unstyled">
-                        <li><a href="/">HOME</a></li>
-                        <li><a href="/shop">SHOP</a></li>
-                        <li><a href="/terms">TERMS</a></li>
-                        <li><a href="/privacy">PRIVACY</a></li>
+                        <li><a href="/shop">Shop</a></li>
+                        <li><a href="/terms">Terms & Conditions</a></li>
+                        <li><a href="/privacy">Privacy Policy</a></li>
+                        <li><a href="/contact">Contact Us</a></li>
                     </ul>
                 </div>
-                <div class="col-md-3 mb-4">
-                    <h5>BRANDS</h5>
-                    <ul class="list-unstyled">
-                        <li><a href="/shop?brand=Adidas">ADIDAS</a></li>
-                        <li><a href="/shop?brand=Puma">PUMA</a></li>
-                        <li><a href="/shop?brand=Under Armour">UNDER ARMOUR</a></li>
-                        <li><a href="/shop?brand=New Balance">NEW BALANCE</a></li>
-                        <li><a href="/shop?brand=Custom">CUSTOM</a></li>
-                    </ul>
-                </div>
-                <div class="col-md-3 mb-4">
-                    <h5>CONTACT</h5>
-                    <ul class="list-unstyled">
-                        <li><i class="fas fa-map-marker-alt"></i> INDIA</li>
-                        <li><i class="fas fa-envelope"></i> SUPPORT@SPORTSWEAR.COM</li>
-                        <li><i class="fas fa-phone"></i> +91 98765 43210</li>
-                    </ul>
+                <div class="col-md-4 mb-4">
+                    <h5>Contact Info</h5>
+                    <p><i class="fas fa-map-marker-alt me-2"></i> India</p>
+                    <p><i class="fas fa-envelope me-2"></i> support@sportswear.com</p>
+                    <p><i class="fas fa-phone me-2"></i> +91 1234567890</p>
                 </div>
             </div>
-            <div class="footer-bottom">
-                <p class="mb-0">&copy; 2024 SPORTSWEAR. ALL RIGHTS RESERVED.</p>
+            <hr class="bg-light">
+            <div class="text-center">
+                <p>&copy; 2024 SportsWear. All rights reserved.</p>
             </div>
         </div>
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/js/main.js"></script>
-    <script>
-        function updateCartCount() {
-            <% if (user) { %>
-                fetch('/cart/count')
-                    .then(res => res.json())
-                    .then(data => {
-                        const cartBadge = document.getElementById('cart-count');
-                        if (cartBadge) {
-                            cartBadge.textContent = data.count;
-                            cartBadge.style.display = data.count > 0 ? 'inline' : 'none';
-                        }
-                    })
-                    .catch(err => console.error('Error:', err));
-            <% } %>
-        }
-        
-        document.addEventListener('DOMContentLoaded', function() {
-            updateCartCount();
-        });
-    </script>
 </body>
 </html>

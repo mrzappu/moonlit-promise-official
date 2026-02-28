@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sports Wear & Custom Apparel</title>
+    <title>SportsWear - Premium Sports & Custom Apparel</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
@@ -13,9 +13,17 @@
             --accent-color: #3498db;
         }
         
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
             background-color: #f8f9fa;
+            color: #333;
+            line-height: 1.6;
         }
         
         .navbar {
@@ -96,6 +104,8 @@
             transition: all 0.3s;
             margin-bottom: 30px;
             height: 100%;
+            display: flex;
+            flex-direction: column;
         }
         
         .product-card:hover {
@@ -104,9 +114,10 @@
         }
         
         .product-image {
-            height: 300px;
+            height: 280px;
             overflow: hidden;
             position: relative;
+            background-color: #f5f5f5;
         }
         
         .product-image img {
@@ -135,6 +146,9 @@
         
         .product-info {
             padding: 20px;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
         }
         
         .product-category {
@@ -142,7 +156,7 @@
             font-size: 0.9rem;
             font-weight: 600;
             text-transform: uppercase;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
         }
         
         .product-title {
@@ -150,6 +164,12 @@
             font-weight: 600;
             margin-bottom: 10px;
             color: var(--primary-color);
+            line-height: 1.4;
+            height: 3.4em;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
         }
         
         .product-price {
@@ -168,11 +188,16 @@
             font-weight: 600;
             transition: all 0.3s;
             width: 100%;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+            margin-top: auto;
         }
         
         .btn-custom:hover {
             background: var(--secondary-color);
             transform: translateY(-2px);
+            color: white;
         }
         
         .section-title {
@@ -211,6 +236,12 @@
             color: white;
         }
         
+        .footer h5 {
+            color: white;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+        
         .discord-login {
             background: #5865F2;
             color: white;
@@ -222,16 +253,13 @@
             display: inline-flex;
             align-items: center;
             gap: 10px;
+            text-decoration: none;
         }
         
         .discord-login:hover {
             background: #4752c4;
             transform: translateY(-2px);
             color: white;
-        }
-        
-        .discord-login i {
-            font-size: 1.2rem;
         }
         
         .user-profile {
@@ -246,6 +274,48 @@
             height: 35px;
             border-radius: 50%;
             border: 2px solid white;
+            object-fit: cover;
+        }
+        
+        .category-card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px 20px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+        
+        .category-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.15);
+        }
+        
+        .category-card i {
+            font-size: 3rem;
+            color: var(--accent-color);
+            margin-bottom: 15px;
+        }
+        
+        .category-card h5 {
+            color: var(--primary-color);
+            font-weight: 600;
+            margin-bottom: 0;
+        }
+        
+        @media (max-width: 768px) {
+            .hero-title {
+                font-size: 2rem;
+            }
+            
+            .section-title {
+                font-size: 2rem;
+            }
+            
+            .product-title {
+                font-size: 1rem;
+            }
         }
     </style>
 </head>
@@ -256,7 +326,7 @@
             <a class="navbar-brand" href="/">
                 <i class="fas fa-tshirt me-2"></i>SportsWear
             </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
@@ -268,13 +338,20 @@
                         <a class="nav-link" href="/shop">Shop</a>
                     </li>
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="brandsDropdown" role="button" data-bs-toggle="dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="brandsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             Brands
                         </a>
                         <ul class="dropdown-menu">
-                            <% brands.forEach(brand => { %>
-                                <li><a class="dropdown-item" href="/shop?brand=<%= brand %>"><%= brand %></a></li>
-                            <% }); %>
+                            <% if (brands && brands.length > 0) { %>
+                                <% brands.forEach(brand => { %>
+                                    <li><a class="dropdown-item" href="/shop?brand=<%= encodeURIComponent(brand) %>"><%= brand %></a></li>
+                                <% }); %>
+                            <% } else { %>
+                                <li><a class="dropdown-item" href="/shop?brand=Adidas">Adidas</a></li>
+                                <li><a class="dropdown-item" href="/shop?brand=Puma">Puma</a></li>
+                                <li><a class="dropdown-item" href="/shop?brand=Under Armour">Under Armour</a></li>
+                                <li><a class="dropdown-item" href="/shop?brand=New Balance">New Balance</a></li>
+                            <% } %>
                         </ul>
                     </li>
                     <% if (user && user.is_admin) { %>
@@ -288,6 +365,7 @@
                         <li class="nav-item">
                             <a class="nav-link" href="/cart">
                                 <i class="fas fa-shopping-cart"></i> Cart
+                                <span id="cart-count" class="badge bg-danger" style="display: none;">0</span>
                             </a>
                         </li>
                         <li class="nav-item">
@@ -296,12 +374,12 @@
                             </a>
                         </li>
                         <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" id="profileDropdown" role="button" data-bs-toggle="dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="profileDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                                 <div class="user-profile">
                                     <% if (user.avatar) { %>
-                                        <img src="https://cdn.discordapp.com/avatars/<%= user.discord_id %>/<%= user.avatar %>.png" class="user-avatar">
+                                        <img src="https://cdn.discordapp.com/avatars/<%= user.discord_id %>/<%= user.avatar %>.png" class="user-avatar" alt="<%= user.username %>">
                                     <% } else { %>
-                                        <i class="fas fa-user-circle"></i>
+                                        <i class="fas fa-user-circle fa-2x"></i>
                                     <% } %>
                                     <span><%= user.username %></span>
                                 </div>
@@ -331,7 +409,7 @@
         <div class="container">
             <h1 class="hero-title">Welcome to SportsWear</h1>
             <p class="hero-subtitle">Your premier destination for Adidas, Puma, Under Armour, New Balance, and custom apparel including Hammper style and esports gear</p>
-            <a href="/shop" class="btn btn-custom btn-lg">Shop Now</a>
+            <a href="/shop" class="btn btn-custom btn-lg" style="width: auto; padding: 12px 40px;">Shop Now</a>
         </div>
     </section>
 
@@ -339,25 +417,33 @@
     <section class="brand-section">
         <div class="container">
             <h2 class="section-title">Our Brands</h2>
-            <div class="row">
-                <div class="col-md-3 col-6 brand-logo">
-                    <a href="/shop?brand=Adidas">
-                        <img src="https://upload.wikimedia.org/wikipedia/commons/2/20/Adidas_Logo.svg" alt="Adidas">
+            <div class="row g-4">
+                <div class="col-md-3 col-6">
+                    <a href="/shop?brand=Adidas" class="text-decoration-none">
+                        <div class="brand-logo">
+                            <img src="https://upload.wikimedia.org/wikipedia/commons/2/20/Adidas_Logo.svg" alt="Adidas" loading="lazy">
+                        </div>
                     </a>
                 </div>
-                <div class="col-md-3 col-6 brand-logo">
-                    <a href="/shop?brand=Puma">
-                        <img src="https://upload.wikimedia.org/wikipedia/commons/8/88/Puma_AG.svg" alt="Puma">
+                <div class="col-md-3 col-6">
+                    <a href="/shop?brand=Puma" class="text-decoration-none">
+                        <div class="brand-logo">
+                            <img src="https://upload.wikimedia.org/wikipedia/commons/8/88/Puma_AG.svg" alt="Puma" loading="lazy">
+                        </div>
                     </a>
                 </div>
-                <div class="col-md-3 col-6 brand-logo">
-                    <a href="/shop?brand=Under Armour">
-                        <img src="https://upload.wikimedia.org/wikipedia/commons/2/24/Under_Armour_Logo.svg" alt="Under Armour">
+                <div class="col-md-3 col-6">
+                    <a href="/shop?brand=Under Armour" class="text-decoration-none">
+                        <div class="brand-logo">
+                            <img src="https://upload.wikimedia.org/wikipedia/commons/2/24/Under_Armour_Logo.svg" alt="Under Armour" loading="lazy">
+                        </div>
                     </a>
                 </div>
-                <div class="col-md-3 col-6 brand-logo">
-                    <a href="/shop?brand=New Balance">
-                        <img src="https://upload.wikimedia.org/wikipedia/commons/e/ea/New_Balance_logo.svg" alt="New Balance">
+                <div class="col-md-3 col-6">
+                    <a href="/shop?brand=New Balance" class="text-decoration-none">
+                        <div class="brand-logo">
+                            <img src="https://upload.wikimedia.org/wikipedia/commons/e/ea/New_Balance_logo.svg" alt="New Balance" loading="lazy">
+                        </div>
                     </a>
                 </div>
             </div>
@@ -367,58 +453,64 @@
     <!-- Featured Products -->
     <section class="container">
         <h2 class="section-title">Featured Products</h2>
-        <div class="row">
-            <% featuredProducts.forEach(product => { %>
-                <div class="col-lg-3 col-md-4 col-sm-6">
-                    <div class="product-card">
-                        <div class="product-image">
-                            <span class="product-badge"><%= product.brand %></span>
-                            <img src="<%= product.image_url %>" alt="<%= product.name %>">
-                        </div>
-                        <div class="product-info">
-                            <div class="product-category"><%= product.category %></div>
-                            <h3 class="product-title"><%= product.name %></h3>
-                            <div class="product-price">₹<%= product.price %></div>
-                            <a href="/product/<%= product.id %>" class="btn btn-custom">View Details</a>
+        <div class="row g-4">
+            <% if (featuredProducts && featuredProducts.length > 0) { %>
+                <% featuredProducts.forEach(product => { %>
+                    <div class="col-lg-3 col-md-4 col-sm-6">
+                        <div class="product-card">
+                            <div class="product-image">
+                                <span class="product-badge"><%= product.brand || 'Brand' %></span>
+                                <img src="<%= product.image_url || '/images/default-product.jpg' %>" alt="<%= product.name %>" loading="lazy">
+                            </div>
+                            <div class="product-info">
+                                <div class="product-category"><%= product.category || 'Category' %></div>
+                                <h3 class="product-title"><%= product.name %></h3>
+                                <div class="product-price">₹<%= Number(product.price).toFixed(2) %></div>
+                                <a href="/product/<%= product.id %>" class="btn btn-custom">View Details</a>
+                            </div>
                         </div>
                     </div>
+                <% }); %>
+            <% } else { %>
+                <div class="col-12 text-center py-5">
+                    <p class="text-muted">No products found. Please check back later.</p>
                 </div>
-            <% }); %>
+            <% } %>
         </div>
     </section>
 
     <!-- Categories -->
     <section class="container mt-5">
         <h2 class="section-title">Shop by Category</h2>
-        <div class="row">
-            <div class="col-md-3 col-6 mb-4">
+        <div class="row g-4">
+            <div class="col-md-3 col-6">
                 <a href="/shop?category=T-Shirts" class="text-decoration-none">
-                    <div class="card text-center p-4 category-card">
-                        <i class="fas fa-tshirt fa-3x mb-3" style="color: var(--primary-color);"></i>
+                    <div class="category-card">
+                        <i class="fas fa-tshirt"></i>
                         <h5>T-Shirts</h5>
                     </div>
                 </a>
             </div>
-            <div class="col-md-3 col-6 mb-4">
+            <div class="col-md-3 col-6">
                 <a href="/shop?category=Hoodies" class="text-decoration-none">
-                    <div class="card text-center p-4 category-card">
-                        <i class="fas fa-tshirt fa-3x mb-3" style="color: var(--primary-color);"></i>
+                    <div class="category-card">
+                        <i class="fas fa-tshirt"></i>
                         <h5>Hoodies</h5>
                     </div>
                 </a>
             </div>
-            <div class="col-md-3 col-6 mb-4">
+            <div class="col-md-3 col-6">
                 <a href="/shop?category=Sports Wear" class="text-decoration-none">
-                    <div class="card text-center p-4 category-card">
-                        <i class="fas fa-running fa-3x mb-3" style="color: var(--primary-color);"></i>
+                    <div class="category-card">
+                        <i class="fas fa-running"></i>
                         <h5>Sports Wear</h5>
                     </div>
                 </a>
             </div>
-            <div class="col-md-3 col-6 mb-4">
+            <div class="col-md-3 col-6">
                 <a href="/shop?category=Esports" class="text-decoration-none">
-                    <div class="card text-center p-4 category-card">
-                        <i class="fas fa-gamepad fa-3x mb-3" style="color: var(--primary-color);"></i>
+                    <div class="category-card">
+                        <i class="fas fa-gamepad"></i>
                         <h5>Esports</h5>
                     </div>
                 </a>
@@ -432,32 +524,54 @@
             <div class="row">
                 <div class="col-md-4 mb-4">
                     <h5>About Us</h5>
-                    <p>Your one-stop shop for premium sports wear and custom apparel. We bring you the best brands and unique designs.</p>
+                    <p>Your one-stop shop for premium sports wear and custom apparel. We bring you the best brands and unique designs including Hammper style and esports merchandise.</p>
                 </div>
                 <div class="col-md-4 mb-4">
                     <h5>Quick Links</h5>
                     <ul class="list-unstyled">
-                        <li><a href="/shop">Shop</a></li>
-                        <li><a href="/terms">Terms & Conditions</a></li>
-                        <li><a href="/privacy">Privacy Policy</a></li>
-                        <li><a href="/contact">Contact Us</a></li>
+                        <li class="mb-2"><a href="/shop">Shop All Products</a></li>
+                        <li class="mb-2"><a href="/terms">Terms & Conditions</a></li>
+                        <li class="mb-2"><a href="/privacy">Privacy Policy</a></li>
+                        <li class="mb-2"><a href="/contact">Contact Us</a></li>
                     </ul>
                 </div>
                 <div class="col-md-4 mb-4">
                     <h5>Contact Info</h5>
-                    <p><i class="fas fa-map-marker-alt me-2"></i> India</p>
-                    <p><i class="fas fa-envelope me-2"></i> support@sportswear.com</p>
-                    <p><i class="fas fa-phone me-2"></i> +91 1234567890</p>
+                    <p class="mb-2"><i class="fas fa-map-marker-alt me-2"></i> India</p>
+                    <p class="mb-2"><i class="fas fa-envelope me-2"></i> support@sportswear.com</p>
+                    <p class="mb-2"><i class="fas fa-phone me-2"></i> +91 9876543210</p>
                 </div>
             </div>
             <hr class="bg-light">
             <div class="text-center">
-                <p>&copy; 2024 SportsWear. All rights reserved.</p>
+                <p class="mb-0">&copy; 2024 SportsWear. All rights reserved.</p>
             </div>
         </div>
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/js/main.js"></script>
+    <script>
+        // Update cart count function
+        function updateCartCount() {
+            <% if (user) { %>
+                fetch('/cart/count')
+                    .then(res => res.json())
+                    .then(data => {
+                        const cartBadge = document.getElementById('cart-count');
+                        if (cartBadge) {
+                            cartBadge.textContent = data.count;
+                            cartBadge.style.display = data.count > 0 ? 'inline' : 'none';
+                        }
+                    })
+                    .catch(err => console.error('Error updating cart count:', err));
+            <% } %>
+        }
+        
+        // Run on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            updateCartCount();
+        });
+    </script>
 </body>
 </html>

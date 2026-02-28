@@ -2,10 +2,13 @@ const express = require('express');
 const session = require('express-session');
 const passport = require('passport');
 const DiscordStrategy = require('passport-discord').Strategy;
+const LocalStrategy = require('passport-local').Strategy;
 const fileUpload = require('express-fileupload');
 const path = require('path');
 const fs = require('fs');
 const QRCode = require('qrcode');
+const bcrypt = require('bcrypt');
+const crypto = require('crypto');
 const { setupDatabase } = require('./database');
 const discordLogger = require('./discordLogger');
 require('dotenv').config();
@@ -18,6 +21,7 @@ app.use((req, res, next) => {
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('X-XSS-Protection', '1; mode=block');
     res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
     res.setHeader('Content-Type', 'text/html; charset=UTF-8');
     res.charset = 'utf-8';
     next();
@@ -30,18 +34,19 @@ app.use(express.static('public'));
 
 app.use(fileUpload({
     limits: { fileSize: 5 * 1024 * 1024 },
-    createParentPath: true
+    createParentPath: true,
+    abortOnLimit: true
 }));
 
-// Session setup - FIXED for Render
+// Session setup
 app.use(session({
-    secret: process.env.SESSION_SECRET || 'default-secret-change-this',
+    secret: process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex'),
     resave: false,
     saveUninitialized: false,
     cookie: {
-        maxAge: 30 * 24 * 60 * 60 * 1000,
+        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
         httpOnly: true,
-        secure: false,
+        secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax'
     },
     proxy: true
@@ -62,7 +67,84 @@ setupDatabase().then(database => {
     console.error('❌ Database connection error:', err);
 });
 
-// FIXED Discord Strategy
+// ==================== PASSPORT STRATEGIES ====================
+
+// Local Strategy for username/password
+passport.use('local', new LocalStrategy(
+    async (username, password, done) => {
+        try {
+            console.log('📝 Local login attempt for:', username);
+            
+            if (!db) {
+                return done(null, false, { message: 'Database not ready' });
+            }
+
+            // Find user by username or email
+            const user = await db.get(
+                'SELECT * FROM users WHERE username = ? OR email = ?', 
+                [username, username]
+            );
+            
+            if (!user) {
+                await discordLogger.logFailedLogin(username, null, 'User not found', 'Username/Password');
+                return done(null, false, { message: 'Invalid username or password' });
+            }
+            
+            // Check if account is locked
+            if (user.locked_until && new Date(user.locked_until) > new Date()) {
+                const lockTime = Math.ceil((new Date(user.locked_until) - new Date()) / 60000);
+                return done(null, false, { message: `Account is locked. Try again in ${lockTime} minutes.` });
+            }
+            
+            if (user.is_banned) {
+                return done(null, false, { message: 'Your account has been banned' });
+            }
+            
+            // Check password
+            const isValid = await bcrypt.compare(password, user.password);
+            if (!isValid) {
+                // Increment login attempts
+                const attempts = (user.login_attempts || 0) + 1;
+                
+                if (attempts >= 5) {
+                    // Lock account for 15 minutes
+                    const lockUntil = new Date(Date.now() + 15 * 60 * 1000);
+                    await db.run(
+                        'UPDATE users SET login_attempts = ?, locked_until = ? WHERE id = ?',
+                        [attempts, lockUntil.toISOString(), user.id]
+                    );
+                    await discordLogger.logAccountLockout(user, req?.ip, 'Too many failed attempts');
+                } else {
+                    await db.run('UPDATE users SET login_attempts = ? WHERE id = ?', [attempts, user.id]);
+                }
+                
+                await discordLogger.logFailedLogin(username, req?.ip, 'Invalid password', 'Username/Password');
+                return done(null, false, { message: 'Invalid username or password' });
+            }
+            
+            // Reset login attempts on successful login
+            await db.run(
+                'UPDATE users SET last_login = CURRENT_TIMESTAMP, login_attempts = 0, locked_until = NULL WHERE id = ?',
+                [user.id]
+            );
+            
+            // Log activity
+            await db.run(
+                'INSERT INTO user_activity (user_id, action, ip_address, user_agent) VALUES (?, ?, ?, ?)',
+                [user.id, 'login', req?.ip, req?.headers['user-agent']]
+            );
+            
+            await discordLogger.logLocalLogin(user, req?.ip);
+            
+            return done(null, user);
+        } catch (error) {
+            console.error('❌ Local strategy error:', error);
+            return done(error);
+        }
+    }
+));
+
+// Discord Strategy
 passport.use(new DiscordStrategy({
     clientID: process.env.DISCORD_CLIENT_ID,
     clientSecret: process.env.DISCORD_CLIENT_SECRET,
@@ -86,13 +168,20 @@ passport.use(new DiscordStrategy({
         const isAdmin = adminIds.includes(profile.id);
 
         if (!user) {
+            // Check if username exists, if so append random numbers
+            let username = profile.username;
+            const existingUser = await db.get('SELECT * FROM users WHERE username = ?', [username]);
+            if (existingUser) {
+                username = `${username}${Math.floor(Math.random() * 1000)}`;
+            }
+            
             const result = await db.run(
                 'INSERT INTO users (discord_id, username, email, avatar, is_admin) VALUES (?, ?, ?, ?, ?)',
-                [profile.id, profile.username, profile.email, profile.avatar, isAdmin]
+                [profile.id, username, profile.email, profile.avatar, isAdmin]
             );
             
             user = await db.get('SELECT * FROM users WHERE id = ?', [result.lastID]);
-            console.log('✅ New user created:', user.username);
+            console.log('✅ New Discord user created:', user.username);
             await discordLogger.logRegister(user);
         } else {
             await db.run(
@@ -101,8 +190,16 @@ passport.use(new DiscordStrategy({
             );
             
             user = await db.get('SELECT * FROM users WHERE discord_id = ?', [profile.id]);
-            console.log('✅ Existing user logged in:', user.username);
+            console.log('✅ Existing Discord user logged in:', user.username);
         }
+
+        // Log activity
+        await db.run(
+            'INSERT INTO user_activity (user_id, action, ip_address, user_agent) VALUES (?, ?, ?, ?)',
+            [user.id, 'discord_login', req?.ip, req?.headers['user-agent']]
+        );
+
+        await discordLogger.logLogin(user, req?.ip, 'Discord');
 
         return done(null, user);
     } catch (error) {
@@ -124,13 +221,14 @@ passport.deserializeUser(async (id, done) => {
     }
 });
 
-// Authentication middleware
+// ==================== AUTHENTICATION MIDDLEWARE ====================
+
 function ensureAuthenticated(req, res, next) {
     if (req.isAuthenticated()) {
         return next();
     }
     req.session.returnTo = req.originalUrl;
-    res.redirect('/');
+    res.redirect('/login');
 }
 
 function ensureAdmin(req, res, next) {
@@ -142,6 +240,339 @@ function ensureAdmin(req, res, next) {
         user: req.user || null 
     });
 }
+
+function ensureGuest(req, res, next) {
+    if (req.isAuthenticated()) {
+        return res.redirect('/');
+    }
+    next();
+}
+
+// ==================== AUTH ROUTES ====================
+
+// Login page
+app.get('/login', ensureGuest, (req, res) => {
+    res.render('login', { 
+        user: null, 
+        error: null, 
+        success: null 
+    });
+});
+
+// Register page
+app.get('/register', ensureGuest, (req, res) => {
+    res.render('register', { 
+        user: null, 
+        error: null 
+    });
+});
+
+// Register handler
+app.post('/register', ensureGuest, async (req, res) => {
+    try {
+        const { username, email, phone, password, confirmPassword } = req.body;
+        
+        // Validation
+        if (!username || !email || !password || !confirmPassword) {
+            return res.render('register', { 
+                user: null, 
+                error: 'All fields are required' 
+            });
+        }
+        
+        if (password !== confirmPassword) {
+            return res.render('register', { 
+                user: null, 
+                error: 'Passwords do not match' 
+            });
+        }
+        
+        if (password.length < 6) {
+            return res.render('register', { 
+                user: null, 
+                error: 'Password must be at least 6 characters' 
+            });
+        }
+        
+        if (!/^[a-zA-Z0-9_]{3,20}$/.test(username)) {
+            return res.render('register', { 
+                user: null, 
+                error: 'Username must be 3-20 characters and can only contain letters, numbers, and underscores' 
+            });
+        }
+        
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            return res.render('register', { 
+                user: null, 
+                error: 'Invalid email format' 
+            });
+        }
+        
+        // Check if user exists
+        const existingUser = await db.get(
+            'SELECT * FROM users WHERE username = ? OR email = ?', 
+            [username, email]
+        );
+        
+        if (existingUser) {
+            if (existingUser.username === username) {
+                return res.render('register', { 
+                    user: null, 
+                    error: 'Username already exists' 
+                });
+            }
+            if (existingUser.email === email) {
+                return res.render('register', { 
+                    user: null, 
+                    error: 'Email already registered' 
+                });
+            }
+        }
+        
+        // Hash password
+        const hashedPassword = await bcrypt.hash(password, 10);
+        
+        // Create user
+        const result = await db.run(
+            'INSERT INTO users (username, email, phone, password, is_admin) VALUES (?, ?, ?, ?, ?)',
+            [username, email, phone || null, hashedPassword, 0]
+        );
+        
+        // Log activity
+        const newUser = await db.get('SELECT * FROM users WHERE id = ?', [result.lastID]);
+        
+        await db.run(
+            'INSERT INTO user_activity (user_id, action, ip_address, user_agent) VALUES (?, ?, ?, ?)',
+            [newUser.id, 'register', req.ip, req.headers['user-agent']]
+        );
+        
+        await discordLogger.logLocalRegister(newUser, req);
+        
+        res.render('login', { 
+            user: null, 
+            error: null, 
+            success: 'Registration successful! Please login.' 
+        });
+        
+    } catch (error) {
+        console.error('Registration error:', error);
+        res.render('register', { 
+            user: null, 
+            error: 'Registration failed. Please try again.' 
+        });
+    }
+});
+
+// Login handler
+app.post('/login', ensureGuest, (req, res, next) => {
+    passport.authenticate('local', (err, user, info) => {
+        if (err) {
+            return next(err);
+        }
+        if (!user) {
+            return res.render('login', { 
+                user: null, 
+                error: info.message || 'Invalid username or password',
+                success: null 
+            });
+        }
+        req.logIn(user, (err) => {
+            if (err) {
+                return next(err);
+            }
+            
+            // Log successful login
+            db.run(
+                'INSERT INTO user_activity (user_id, action, ip_address, user_agent) VALUES (?, ?, ?, ?)',
+                [user.id, 'login_success', req.ip, req.headers['user-agent']]
+            );
+            
+            const returnTo = req.session.returnTo || '/';
+            delete req.session.returnTo;
+            return res.redirect(returnTo);
+        });
+    })(req, res, next);
+});
+
+// Discord login
+app.get('/auth/discord', passport.authenticate('discord'));
+
+// Discord callback
+app.get('/auth/discord/callback', 
+    passport.authenticate('discord', { 
+        failureRedirect: '/login',
+        failureMessage: true 
+    }),
+    (req, res) => {
+        const returnTo = req.session.returnTo || '/';
+        delete req.session.returnTo;
+        res.redirect(returnTo);
+    }
+);
+
+// Logout
+app.get('/logout', (req, res, next) => {
+    const user = req.user;
+    req.logout(async (err) => {
+        if (err) { 
+            console.error('Logout error:', err);
+            return next(err); 
+        }
+        
+        if (user) {
+            await db.run(
+                'INSERT INTO user_activity (user_id, action, ip_address, user_agent) VALUES (?, ?, ?, ?)',
+                [user.id, 'logout', req.ip, req.headers['user-agent']]
+            );
+            await discordLogger.logLogout(user);
+        }
+        
+        res.redirect('/');
+    });
+});
+
+// Forgot password page
+app.get('/forgot-password', ensureGuest, (req, res) => {
+    res.render('forgot-password', { 
+        user: null, 
+        error: null, 
+        success: null 
+    });
+});
+
+// Forgot password handler
+app.post('/forgot-password', ensureGuest, async (req, res) => {
+    try {
+        const { email } = req.body;
+        
+        const user = await db.get('SELECT * FROM users WHERE email = ?', [email]);
+        
+        if (user) {
+            // Generate reset token
+            const token = crypto.randomBytes(32).toString('hex');
+            const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+            
+            await db.run(
+                'INSERT INTO password_resets (user_id, token, expires_at) VALUES (?, ?, ?)',
+                [user.id, token, expires.toISOString()]
+            );
+            
+            await discordLogger.logAccountRecovery(email, req.ip);
+            
+            // In production, send email here
+            console.log(`Password reset link: /reset-password/${token}`);
+        }
+        
+        // Always show success to prevent email enumeration
+        res.render('forgot-password', { 
+            user: null, 
+            error: null, 
+            success: 'If your email is registered, you will receive a password reset link.' 
+        });
+        
+    } catch (error) {
+        console.error('Forgot password error:', error);
+        res.render('forgot-password', { 
+            user: null, 
+            error: 'An error occurred. Please try again.',
+            success: null 
+        });
+    }
+});
+
+// Reset password page
+app.get('/reset-password/:token', ensureGuest, async (req, res) => {
+    try {
+        const { token } = req.params;
+        
+        const reset = await db.get(
+            'SELECT * FROM password_resets WHERE token = ? AND expires_at > CURRENT_TIMESTAMP AND used = 0',
+            [token]
+        );
+        
+        if (!reset) {
+            return res.render('error', { 
+                message: 'Invalid or expired reset link',
+                user: null 
+            });
+        }
+        
+        res.render('reset-password', { 
+            user: null, 
+            token, 
+            error: null 
+        });
+        
+    } catch (error) {
+        console.error('Reset password page error:', error);
+        res.render('error', { 
+            message: 'An error occurred',
+            user: null 
+        });
+    }
+});
+
+// Reset password handler
+app.post('/reset-password/:token', ensureGuest, async (req, res) => {
+    try {
+        const { token } = req.params;
+        const { password, confirmPassword } = req.body;
+        
+        if (password !== confirmPassword) {
+            return res.render('reset-password', { 
+                user: null, 
+                token, 
+                error: 'Passwords do not match' 
+            });
+        }
+        
+        if (password.length < 6) {
+            return res.render('reset-password', { 
+                user: null, 
+                token, 
+                error: 'Password must be at least 6 characters' 
+            });
+        }
+        
+        const reset = await db.get(
+            'SELECT * FROM password_resets WHERE token = ? AND expires_at > CURRENT_TIMESTAMP AND used = 0',
+            [token]
+        );
+        
+        if (!reset) {
+            return res.render('error', { 
+                message: 'Invalid or expired reset link',
+                user: null 
+            });
+        }
+        
+        // Hash new password
+        const hashedPassword = await bcrypt.hash(password, 10);
+        
+        // Update user password
+        await db.run('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, reset.user_id]);
+        
+        // Mark token as used
+        await db.run('UPDATE password_resets SET used = 1 WHERE id = ?', [reset.id]);
+        
+        // Log password change
+        const user = await db.get('SELECT * FROM users WHERE id = ?', [reset.user_id]);
+        await discordLogger.logPasswordChange(user, req.ip, 'user');
+        
+        res.render('login', { 
+            user: null, 
+            error: null, 
+            success: 'Password reset successful! Please login.' 
+        });
+        
+    } catch (error) {
+        console.error('Reset password error:', error);
+        res.render('error', { 
+            message: 'An error occurred',
+            user: null 
+        });
+    }
+});
 
 // ==================== PUBLIC ROUTES ====================
 
@@ -277,42 +708,6 @@ app.get('/product/:id', async (req, res) => {
 // Terms page
 app.get('/terms', (req, res) => {
     res.render('terms', { user: req.user || null });
-});
-
-// ==================== FIXED AUTH ROUTES ====================
-
-// Discord login
-app.get('/auth/discord', passport.authenticate('discord'));
-
-// Discord callback - FIXED
-app.get('/auth/discord/callback', 
-    passport.authenticate('discord', { 
-        failureRedirect: '/',
-        failureMessage: true 
-    }),
-    async (req, res) => {
-        try {
-            console.log('✅ Login successful for:', req.user.username);
-            await discordLogger.logLogin(req.user, req.ip);
-            const returnTo = req.session.returnTo || '/';
-            delete req.session.returnTo;
-            res.redirect(returnTo);
-        } catch (error) {
-            console.error('❌ Callback error:', error);
-            res.redirect('/');
-        }
-    }
-);
-
-// Logout
-app.get('/logout', (req, res, next) => {
-    req.logout(function(err) {
-        if (err) { 
-            console.error('Logout error:', err);
-            return next(err); 
-        }
-        res.redirect('/');
-    });
 });
 
 // ==================== CART ROUTES ====================
@@ -455,31 +850,54 @@ app.post('/cart/clear', ensureAuthenticated, async (req, res) => {
 app.post('/cart/apply-coupon', ensureAuthenticated, async (req, res) => {
     try {
         const { code } = req.body;
-        const validCoupons = {
-            'WELCOME10': 10,
-            'SAVE20': 20,
-            'FREESHIP': 0
-        };
         
-        if (validCoupons[code]) {
-            const cartItems = await db.all(`
-                SELECT c.*, p.price 
-                FROM cart c 
-                JOIN products p ON c.product_id = p.id 
-                WHERE c.user_id = ?
-            `, [req.user.id]);
-            
-            let subtotal = 0;
-            cartItems.forEach(item => {
-                subtotal += item.price * item.quantity;
-            });
-            
-            const discountAmount = (subtotal * validCoupons[code]) / 100;
-            req.session.discount = discountAmount;
-            res.json({ success: true, message: `Coupon applied! You saved ₹${discountAmount}` });
-        } else {
-            res.json({ success: false, message: 'Invalid coupon code' });
+        const coupon = await db.get(
+            'SELECT * FROM coupons WHERE code = ? AND valid_from <= CURRENT_TIMESTAMP AND valid_until >= CURRENT_TIMESTAMP AND (usage_limit IS NULL OR used_count < usage_limit)',
+            [code]
+        );
+        
+        if (!coupon) {
+            return res.json({ success: false, message: 'Invalid or expired coupon' });
         }
+        
+        // Get cart subtotal
+        const cartItems = await db.all(`
+            SELECT c.*, p.price 
+            FROM cart c 
+            JOIN products p ON c.product_id = p.id 
+            WHERE c.user_id = ?
+        `, [req.user.id]);
+        
+        let subtotal = 0;
+        cartItems.forEach(item => {
+            subtotal += item.price * item.quantity;
+        });
+        
+        if (subtotal < coupon.min_order_amount) {
+            return res.json({ 
+                success: false, 
+                message: `Minimum order amount of ₹${coupon.min_order_amount} required` 
+            });
+        }
+        
+        let discountAmount = 0;
+        if (coupon.discount_type === 'percentage') {
+            discountAmount = (subtotal * coupon.discount_value) / 100;
+            if (coupon.max_discount && discountAmount > coupon.max_discount) {
+                discountAmount = coupon.max_discount;
+            }
+        } else {
+            discountAmount = coupon.discount_value;
+        }
+        
+        // Increment coupon usage
+        await db.run('UPDATE coupons SET used_count = used_count + 1 WHERE id = ?', [coupon.id]);
+        
+        req.session.discount = discountAmount;
+        req.session.couponCode = code;
+        
+        res.json({ success: true, message: `Coupon applied! You saved ₹${discountAmount}` });
+        
     } catch (error) {
         console.error('Apply coupon error:', error);
         res.status(500).json({ error: 'Server error' });
@@ -509,7 +927,8 @@ app.get('/checkout', ensureAuthenticated, async (req, res) => {
 
         const tax = subtotal * 0.18;
         const discount = req.session.discount || 0;
-        const total = subtotal + tax - discount;
+        const shipping = subtotal >= 999 ? 0 : 50;
+        const total = subtotal + tax + shipping - discount;
 
         const tempOrderId = 'TEMP' + Date.now();
         const upiId = 'sportswear@okhdfcbank';
@@ -524,12 +943,13 @@ app.get('/checkout', ensureAuthenticated, async (req, res) => {
             cartItems: cartItems || [], 
             subtotal: subtotal || 0,
             tax: tax || 0,
+            shipping: shipping,
             discount: discount || 0,
             total: total || 0,
             qrCodeDataUrl: qrCodeDataUrl || null,
             upiId: upiId,
             tempOrderId: tempOrderId,
-            paymentMethods: ['UPI', 'Paytm', 'Google Pay', 'QR Code']
+            paymentMethods: ['UPI', 'Paytm', 'Google Pay', 'QR Code', 'Credit Card', 'Debit Card', 'Net Banking']
         });
     } catch (error) {
         console.error('Checkout page error:', error);
@@ -543,7 +963,7 @@ app.get('/checkout', ensureAuthenticated, async (req, res) => {
 // Process checkout
 app.post('/checkout/process', ensureAuthenticated, async (req, res) => {
     try {
-        const { paymentMethod, address, city, pincode, phone } = req.body;
+        const { paymentMethod, address, city, pincode, phone, notes } = req.body;
         const fullAddress = `${address}, ${city} - ${pincode}`;
         let paymentProof = null;
 
@@ -570,17 +990,20 @@ app.post('/checkout/process', ensureAuthenticated, async (req, res) => {
         });
         
         const tax = subtotal * 0.18;
+        const shipping = subtotal >= 999 ? 0 : 50;
         const discount = req.session.discount || 0;
-        const total = subtotal + tax - discount;
+        const total = subtotal + tax + shipping - discount;
         const orderNumber = 'ORD' + Date.now() + Math.floor(Math.random() * 1000);
 
         await db.run('BEGIN TRANSACTION');
 
+        // Create order
         const orderResult = await db.run(`
-            INSERT INTO orders (user_id, order_number, total_amount, payment_method, shipping_address, status, phone)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        `, [req.user.id, orderNumber, total, paymentMethod, fullAddress, 'pending', phone]);
+            INSERT INTO orders (user_id, order_number, total_amount, payment_method, shipping_address, city, pincode, phone, notes, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `, [req.user.id, orderNumber, total, paymentMethod, fullAddress, city, pincode, phone, notes, 'pending']);
 
+        // Add order items and update stock
         for (const item of cartItems) {
             await db.run(`
                 INSERT INTO order_items (order_id, product_id, quantity, price)
@@ -593,60 +1016,56 @@ app.post('/checkout/process', ensureAuthenticated, async (req, res) => {
             );
         }
 
+        // Record payment
         await db.run(`
             INSERT INTO payments (order_id, user_id, amount, payment_method, payment_proof, status)
             VALUES (?, ?, ?, ?, ?, ?)
         `, [orderResult.lastID, req.user.id, total, paymentMethod, paymentProof, 'pending']);
 
+        // Clear cart
         await db.run('DELETE FROM cart WHERE user_id = ?', [req.user.id]);
+
+        // Clear discount session
+        delete req.session.discount;
+        delete req.session.couponCode;
+
         await db.run('COMMIT');
 
+        // Prepare shipping details for logging
+        const shippingDetails = {
+            fullAddress,
+            city,
+            pincode,
+            phone
+        };
+
+        // Log order creation with full details
+        const order = {
+            order_number: orderNumber,
+            total_amount: total,
+            payment_method: paymentMethod,
+            status: 'pending',
+            phone,
+            shipping_address: fullAddress
+        };
+        
+        await discordLogger.logOrderCreate(req.user, order, cartItems, shippingDetails);
+
+        // Log payment initiation
         const payment = {
             order_id: orderResult.lastID,
             amount: total,
             payment_method: paymentMethod
         };
-
-        await discordLogger.logPaymentInit(req.user, payment);
-        if (paymentProof) {
-            await discordLogger.logPaymentSuccess(req.user, payment, paymentProof);
-        }
-
-        const order = {
-            order_number: orderNumber,
-            total_amount: total,
-            payment_method: paymentMethod
-        };
-        await discordLogger.logOrderCreate(req.user, order);
+        await discordLogger.logPaymentInit(req.user, payment, shippingDetails);
 
         res.redirect('/order-confirmation/' + orderResult.lastID);
+        
     } catch (error) {
         await db.run('ROLLBACK');
         console.error('Checkout error:', error);
         await discordLogger.logError(error, { location: 'checkout', user: req.user });
         res.status(500).json({ error: 'Server error' });
-    }
-});
-
-// API to generate QR code
-app.post('/api/generate-qr', ensureAuthenticated, async (req, res) => {
-    try {
-        const { amount } = req.body;
-        const upiId = 'sportswear@okhdfcbank';
-        const payeeName = 'SportsWear';
-        const orderId = 'TEMP' + Date.now();
-        const upiUrl = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(payeeName)}&am=${amount}&cu=INR&tn=${encodeURIComponent('Order ' + orderId)}`;
-        const qrCodeDataUrl = await QRCode.toDataURL(upiUrl);
-        
-        res.json({ 
-            success: true, 
-            qrCode: qrCodeDataUrl,
-            upiId: upiId,
-            orderId: orderId
-        });
-    } catch (error) {
-        console.error('QR generation error:', error);
-        res.status(500).json({ error: 'Failed to generate QR code' });
     }
 });
 
@@ -660,6 +1079,13 @@ app.get('/order-confirmation/:id', ensureAuthenticated, async (req, res) => {
             WHERE o.id = ? AND o.user_id = ?
         `, [req.params.id, req.user.id]);
 
+        if (!order) {
+            return res.status(404).render('error', { 
+                message: 'Order not found',
+                user: req.user || null 
+            });
+        }
+
         const orderItems = await db.all(`
             SELECT oi.*, p.name, p.image_url 
             FROM order_items oi 
@@ -667,7 +1093,11 @@ app.get('/order-confirmation/:id', ensureAuthenticated, async (req, res) => {
             WHERE oi.order_id = ?
         `, [req.params.id]);
 
-        res.render('order-confirmation', { user: req.user, order, orderItems: orderItems || [] });
+        res.render('order-confirmation', { 
+            user: req.user, 
+            order, 
+            orderItems: orderItems || [] 
+        });
     } catch (error) {
         console.error('Order confirmation error:', error);
         res.status(500).render('error', { 
@@ -683,7 +1113,9 @@ app.get('/order-confirmation/:id', ensureAuthenticated, async (req, res) => {
 app.get('/profile', ensureAuthenticated, async (req, res) => {
     try {
         const orderStats = await db.get(`
-            SELECT COUNT(*) as total_orders, SUM(total_amount) as total_spent 
+            SELECT COUNT(*) as total_orders, 
+                   SUM(total_amount) as total_spent,
+                   SUM(CASE WHEN status = 'completed' THEN total_amount ELSE 0 END) as completed_spent
             FROM orders 
             WHERE user_id = ?
         `, [req.user.id]);
@@ -695,6 +1127,14 @@ app.get('/profile', ensureAuthenticated, async (req, res) => {
             LIMIT 5
         `, [req.user.id]);
 
+        const wishlistItems = await db.all(`
+            SELECT w.*, p.name, p.price, p.image_url 
+            FROM wishlist w 
+            JOIN products p ON w.product_id = p.id 
+            WHERE w.user_id = ?
+            ORDER BY w.added_at DESC
+        `, [req.user.id]);
+
         const recentActivity = await db.all(`
             SELECT * FROM user_activity 
             WHERE user_id = ? 
@@ -704,8 +1144,9 @@ app.get('/profile', ensureAuthenticated, async (req, res) => {
 
         res.render('profile', { 
             user: req.user, 
-            stats: orderStats || { total_orders: 0, total_spent: 0 },
+            stats: orderStats || { total_orders: 0, total_spent: 0, completed_spent: 0 },
             orders: recentOrders || [],
+            wishlist: wishlistItems || [],
             recentActivity: recentActivity || [] 
         });
     } catch (error) {
@@ -717,14 +1158,68 @@ app.get('/profile', ensureAuthenticated, async (req, res) => {
     }
 });
 
+// Update profile
+app.post('/profile/update', ensureAuthenticated, async (req, res) => {
+    try {
+        const { phone, email } = req.body;
+        
+        await db.run(
+            'UPDATE users SET phone = ?, email = ? WHERE id = ?',
+            [phone, email, req.user.id]
+        );
+        
+        res.json({ success: true, message: 'Profile updated successfully' });
+    } catch (error) {
+        console.error('Profile update error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// Change password
+app.post('/profile/change-password', ensureAuthenticated, async (req, res) => {
+    try {
+        const { currentPassword, newPassword, confirmPassword } = req.body;
+        
+        if (newPassword !== confirmPassword) {
+            return res.status(400).json({ error: 'Passwords do not match' });
+        }
+        
+        if (newPassword.length < 6) {
+            return res.status(400).json({ error: 'Password must be at least 6 characters' });
+        }
+        
+        const user = await db.get('SELECT * FROM users WHERE id = ?', [req.user.id]);
+        
+        const isValid = await bcrypt.compare(currentPassword, user.password);
+        if (!isValid) {
+            return res.status(400).json({ error: 'Current password is incorrect' });
+        }
+        
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        await db.run('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, req.user.id]);
+        
+        await discordLogger.logPasswordChange(req.user, req.ip, 'user');
+        
+        res.json({ success: true, message: 'Password changed successfully' });
+    } catch (error) {
+        console.error('Password change error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
 // Delete account
 app.post('/profile/delete', ensureAuthenticated, async (req, res) => {
     try {
         await db.run('BEGIN TRANSACTION');
+        
+        // Delete all user data
         await db.run('DELETE FROM cart WHERE user_id = ?', [req.user.id]);
+        await db.run('DELETE FROM wishlist WHERE user_id = ?', [req.user.id]);
         await db.run('DELETE FROM payments WHERE user_id = ?', [req.user.id]);
         await db.run('DELETE FROM user_activity WHERE user_id = ?', [req.user.id]);
+        await db.run('DELETE FROM password_resets WHERE user_id = ?', [req.user.id]);
         await db.run('DELETE FROM users WHERE id = ?', [req.user.id]);
+        
         await db.run('COMMIT');
         
         req.logout((err) => {
@@ -734,6 +1229,34 @@ app.post('/profile/delete', ensureAuthenticated, async (req, res) => {
     } catch (error) {
         await db.run('ROLLBACK');
         console.error('Delete account error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// Add to wishlist
+app.post('/wishlist/add/:productId', ensureAuthenticated, async (req, res) => {
+    try {
+        await db.run(
+            'INSERT OR IGNORE INTO wishlist (user_id, product_id) VALUES (?, ?)',
+            [req.user.id, req.params.productId]
+        );
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Wishlist add error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// Remove from wishlist
+app.post('/wishlist/remove/:productId', ensureAuthenticated, async (req, res) => {
+    try {
+        await db.run(
+            'DELETE FROM wishlist WHERE user_id = ? AND product_id = ?',
+            [req.user.id, req.params.productId]
+        );
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Wishlist remove error:', error);
         res.status(500).json({ error: 'Server error' });
     }
 });
@@ -830,6 +1353,8 @@ app.post('/order/:id/reorder', ensureAuthenticated, async (req, res) => {
     try {
         const orderItems = await db.all('SELECT product_id, quantity FROM order_items WHERE order_id = ?', [req.params.id]);
         
+        await db.run('BEGIN TRANSACTION');
+        
         for (const item of orderItems) {
             const product = await db.get('SELECT * FROM products WHERE id = ? AND stock >= ?', [item.product_id, item.quantity]);
             
@@ -846,8 +1371,11 @@ app.post('/order/:id/reorder', ensureAuthenticated, async (req, res) => {
                 }
             }
         }
+        
+        await db.run('COMMIT');
         res.json({ success: true });
     } catch (error) {
+        await db.run('ROLLBACK');
         console.error('Reorder error:', error);
         res.status(500).json({ error: 'Server error' });
     }
@@ -863,6 +1391,7 @@ app.post('/order/:id/cancel', ensureAuthenticated, async (req, res) => {
         }
         
         await db.run('BEGIN TRANSACTION');
+        
         await db.run('UPDATE orders SET status = "cancelled" WHERE id = ?', [req.params.id]);
         
         const orderItems = await db.all('SELECT * FROM order_items WHERE order_id = ?', [req.params.id]);
@@ -870,7 +1399,10 @@ app.post('/order/:id/cancel', ensureAuthenticated, async (req, res) => {
             await db.run('UPDATE products SET stock = stock + ? WHERE id = ?', [item.quantity, item.product_id]);
         }
         
+        await db.run('UPDATE payments SET status = "cancelled" WHERE order_id = ?', [req.params.id]);
+        
         await db.run('COMMIT');
+        
         await discordLogger.logOrderUpdate(req.user, order, 'pending', 'cancelled');
         res.json({ success: true });
     } catch (error) {
@@ -880,39 +1412,35 @@ app.post('/order/:id/cancel', ensureAuthenticated, async (req, res) => {
     }
 });
 
-// Track order
-app.get('/track-order/:id', ensureAuthenticated, async (req, res) => {
+// ==================== API ROUTES ====================
+
+// Search API
+app.get('/api/search', async (req, res) => {
     try {
-        const order = await db.get(`
-            SELECT o.*, u.username 
-            FROM orders o 
-            JOIN users u ON o.user_id = u.id 
-            WHERE o.id = ? AND o.user_id = ?
-        `, [req.params.id, req.user.id]);
-        
-        if (!order) {
-            return res.status(404).render('error', { 
-                message: 'Order not found',
-                user: req.user || null 
-            });
-        }
-        
-        const trackingStatus = [
-            { status: 'Order Placed', date: order.created_at, completed: true },
-            { status: 'Payment Confirmed', date: order.updated_at, completed: order.status !== 'pending' },
-            { status: 'Processing', date: null, completed: ['processing', 'shipped', 'delivered', 'completed'].includes(order.status) },
-            { status: 'Shipped', date: null, completed: ['shipped', 'delivered', 'completed'].includes(order.status) },
-            { status: 'Out for Delivery', date: null, completed: ['delivered', 'completed'].includes(order.status) },
-            { status: 'Delivered', date: null, completed: ['delivered', 'completed'].includes(order.status) }
-        ];
-        
-        res.render('track-order', { user: req.user, order, trackingStatus });
+        const { q } = req.query;
+        const products = await db.all(`
+            SELECT * FROM products 
+            WHERE name LIKE ? OR description LIKE ? 
+            LIMIT 20
+        `, [`%${q}%`, `%${q}%`]);
+        res.json(products || []);
     } catch (error) {
-        console.error('Track order error:', error);
-        res.status(500).render('error', { 
-            message: 'Server error',
-            user: req.user || null 
-        });
+        console.error('Search error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// Products API for infinite scroll
+app.get('/api/products', async (req, res) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = 12;
+        const offset = (page - 1) * limit;
+        const products = await db.all('SELECT * FROM products ORDER BY created_at DESC LIMIT ? OFFSET ?', [limit, offset]);
+        res.json({ products: products || [] });
+    } catch (error) {
+        console.error('Products API error:', error);
+        res.status(500).json({ error: 'Server error' });
     }
 });
 
@@ -927,6 +1455,7 @@ app.get('/admin', ensureAdmin, async (req, res) => {
         const totalOrders = await db.get('SELECT COUNT(*) as count FROM orders');
         const totalProducts = await db.get('SELECT COUNT(*) as count FROM products');
         const totalRevenue = await db.get('SELECT SUM(total_amount) as total FROM orders WHERE status = "completed"');
+        const pendingOrders = await db.get('SELECT COUNT(*) as count FROM orders WHERE status = "pending"');
         
         const recentOrders = await db.all(`
             SELECT o.*, u.username 
@@ -943,6 +1472,7 @@ app.get('/admin', ensureAdmin, async (req, res) => {
             totalOrders: totalOrders || { count: 0 },
             totalProducts: totalProducts || { count: 0 },
             totalRevenue: totalRevenue || { total: 0 },
+            pendingOrders: pendingOrders || { count: 0 },
             recentOrders: recentOrders || [],
             recentUsers: recentUsers || []
         };
@@ -963,7 +1493,8 @@ app.get('/admin/users', ensureAdmin, async (req, res) => {
         const users = await db.all(`
             SELECT u.*, 
                    (SELECT COUNT(*) FROM orders WHERE user_id = u.id) as order_count,
-                   (SELECT SUM(total_amount) FROM orders WHERE user_id = u.id AND status = 'completed') as total_spent
+                   (SELECT SUM(total_amount) FROM orders WHERE user_id = u.id AND status = 'completed') as total_spent,
+                   (SELECT COUNT(*) FROM user_activity WHERE user_id = u.id) as activity_count
             FROM users u
             ORDER BY u.created_at DESC
         `);
@@ -1033,7 +1564,7 @@ app.post('/admin/products', ensureAdmin, async (req, res) => {
             VALUES (?, ?, ?, ?, ?, ?, ?)
         `, [name, description, price, category, brand, imageUrl, stock]);
 
-        await discordLogger.logProductAdd(req.user, { id: result.lastID, name, price, category });
+        await discordLogger.logProductAdd(req.user, { id: result.lastID, name, price, category, brand, stock });
         res.redirect('/admin/products');
     } catch (error) {
         console.error('Add product error:', error);
@@ -1143,8 +1674,15 @@ app.post('/admin/orders/:id/verify-payment', ensureAdmin, async (req, res) => {
             await db.run('UPDATE payments SET status = "completed", upi_transaction_id = ? WHERE order_id = ?', [upiTransactionId || null, req.params.id]);
             await db.run('COMMIT');
             
-            await discordLogger.logPaymentSuccess(user, payment, payment.payment_proof, upiTransactionId);
-            await discordLogger.logOrderComplete(user, order);
+            const shippingDetails = {
+                phone: order.phone,
+                city: order.city,
+                pincode: order.pincode,
+                fullAddress: order.shipping_address
+            };
+            
+            await discordLogger.logPaymentSuccess(user, payment, payment.payment_proof, upiTransactionId, shippingDetails);
+            await discordLogger.logOrderComplete(user, order, shippingDetails);
             res.json({ success: true });
             
         } else if (status === 'failed') {
@@ -1158,7 +1696,7 @@ app.post('/admin/orders/:id/verify-payment', ensureAdmin, async (req, res) => {
             }
             
             await db.run('COMMIT');
-            await discordLogger.logPaymentFailed(user, payment, 'Payment rejected');
+            await discordLogger.logPaymentFailed(user, payment, 'Payment rejected by admin');
             res.json({ success: true });
         }
     } catch (error) {
@@ -1236,38 +1774,6 @@ app.post('/admin/restore', ensureAdmin, async (req, res) => {
     }
 });
 
-// ==================== API ROUTES ====================
-
-// Search API
-app.get('/api/search', async (req, res) => {
-    try {
-        const { q } = req.query;
-        const products = await db.all(`
-            SELECT * FROM products 
-            WHERE name LIKE ? OR description LIKE ? 
-            LIMIT 10
-        `, [`%${q}%`, `%${q}%`]);
-        res.json(products || []);
-    } catch (error) {
-        console.error('Search error:', error);
-        res.status(500).json({ error: 'Server error' });
-    }
-});
-
-// Products API for infinite scroll
-app.get('/api/products', async (req, res) => {
-    try {
-        const page = parseInt(req.query.page) || 1;
-        const limit = 12;
-        const offset = (page - 1) * limit;
-        const products = await db.all('SELECT * FROM products ORDER BY created_at DESC LIMIT ? OFFSET ?', [limit, offset]);
-        res.json({ products: products || [] });
-    } catch (error) {
-        console.error('Products API error:', error);
-        res.status(500).json({ error: 'Server error' });
-    }
-});
-
 // ==================== ERROR HANDLING ====================
 
 // 404 handler
@@ -1292,7 +1798,8 @@ app.use((err, req, res, next) => {
 
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`✅ Server running on port ${PORT}`);
-    console.log(`🌍 Website: https://moonlit-promise-new.onrender.com`);
+    console.log(`🌍 Website: http://localhost:${PORT}`);
+    console.log(`🌍 Public URL: https://moonlit-promise-new.onrender.com`);
     discordLogger.logSystem(`Server started on port ${PORT}`, 'info');
 });
 

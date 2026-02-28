@@ -12,9 +12,8 @@ async function setupDatabase() {
     // Enable foreign keys
     await db.exec('PRAGMA foreign_keys = ON;');
 
-    // Create tables
+    // Create tables (with IF NOT EXISTS)
     await db.exec(`
-        -- Users table with local auth support
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             discord_id TEXT UNIQUE,
@@ -31,7 +30,6 @@ async function setupDatabase() {
             locked_until DATETIME
         );
 
-        -- Products table
         CREATE TABLE IF NOT EXISTS products (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
@@ -45,14 +43,12 @@ async function setupDatabase() {
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
 
-        -- Categories table
         CREATE TABLE IF NOT EXISTS categories (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT UNIQUE,
             brand TEXT
         );
 
-        -- Cart table
         CREATE TABLE IF NOT EXISTS cart (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER,
@@ -63,7 +59,6 @@ async function setupDatabase() {
             FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
         );
 
-        -- Orders table with full details
         CREATE TABLE IF NOT EXISTS orders (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER,
@@ -82,7 +77,6 @@ async function setupDatabase() {
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         );
 
-        -- Order items table
         CREATE TABLE IF NOT EXISTS order_items (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             order_id INTEGER,
@@ -93,7 +87,6 @@ async function setupDatabase() {
             FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
         );
 
-        -- Payments table
         CREATE TABLE IF NOT EXISTS payments (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             order_id INTEGER,
@@ -109,7 +102,6 @@ async function setupDatabase() {
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         );
 
-        -- User activity logging
         CREATE TABLE IF NOT EXISTS user_activity (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER,
@@ -121,7 +113,6 @@ async function setupDatabase() {
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         );
 
-        -- Password reset tokens
         CREATE TABLE IF NOT EXISTS password_resets (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER,
@@ -132,7 +123,6 @@ async function setupDatabase() {
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         );
 
-        -- Wishlist table
         CREATE TABLE IF NOT EXISTS wishlist (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER,
@@ -143,7 +133,6 @@ async function setupDatabase() {
             UNIQUE(user_id, product_id)
         );
 
-        -- Reviews table
         CREATE TABLE IF NOT EXISTS reviews (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER,
@@ -155,7 +144,6 @@ async function setupDatabase() {
             FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
         );
 
-        -- Coupons table
         CREATE TABLE IF NOT EXISTS coupons (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             code TEXT UNIQUE,
@@ -210,102 +198,93 @@ async function setupDatabase() {
         await db.exec("ALTER TABLE user_activity ADD COLUMN details TEXT;");
     }
 
-    // Insert default categories if none exist
-    const categoryCount = await db.get('SELECT COUNT(*) as count FROM categories');
-    if (categoryCount.count === 0) {
-        const defaultCategories = [
-            ['T-Shirts', 'Adidas'],
-            ['T-Shirts', 'Puma'],
-            ['T-Shirts', 'Under Armour'],
-            ['T-Shirts', 'New Balance'],
-            ['Hoodies', 'Adidas'],
-            ['Hoodies', 'Puma'],
-            ['Hoodies', 'Under Armour'],
-            ['Hoodies', 'New Balance'],
-            ['Sports Wear', 'Adidas'],
-            ['Sports Wear', 'Puma'],
-            ['Sports Wear', 'Under Armour'],
-            ['Sports Wear', 'New Balance'],
-            ['Esports', 'Custom'],
-            ['Sticker Printed', 'Custom']
-        ];
+    // Insert default categories - FIXED with INSERT OR IGNORE
+    const defaultCategories = [
+        ['T-Shirts', 'Adidas'],
+        ['T-Shirts', 'Puma'],
+        ['T-Shirts', 'Under Armour'],
+        ['T-Shirts', 'New Balance'],
+        ['Hoodies', 'Adidas'],
+        ['Hoodies', 'Puma'],
+        ['Hoodies', 'Under Armour'],
+        ['Hoodies', 'New Balance'],
+        ['Sports Wear', 'Adidas'],
+        ['Sports Wear', 'Puma'],
+        ['Sports Wear', 'Under Armour'],
+        ['Sports Wear', 'New Balance'],
+        ['Esports', 'Custom'],
+        ['Sticker Printed', 'Custom']
+    ];
 
-        for (const cat of defaultCategories) {
-            await db.run(
-                'INSERT INTO categories (name, brand) VALUES (?, ?)',
-                cat
-            );
-        }
-        console.log('✅ Default categories added');
+    for (const cat of defaultCategories) {
+        await db.run(
+            'INSERT OR IGNORE INTO categories (name, brand) VALUES (?, ?)',
+            cat
+        );
     }
+    console.log('✅ Categories checked/added');
 
-    // Insert sample products if none exist
-    const productCount = await db.get('SELECT COUNT(*) as count FROM products');
-    if (productCount.count === 0) {
-        const sampleProducts = [
-            // Adidas Products
-            ['Adidas Essential T-Shirt', 'Classic adidas t-shirt for everyday wear. Made with soft cotton fabric for maximum comfort.', 29.99, 'T-Shirts', 'Adidas', '/images/adidas-tshirt.jpg', 50],
-            ['Adidas Response T-Shirt', 'Performance fit training t-shirt with moisture-wicking technology.', 34.99, 'T-Shirts', 'Adidas', '/images/adidas-response.jpg', 45],
-            ['Adidas Sport Hoodie', 'Comfortable hoodie for training and casual wear. Features kangaroo pocket.', 59.99, 'Hoodies', 'Adidas', '/images/adidas-hoodie.jpg', 30],
-            ['Adidas Running Shorts', 'Lightweight running shorts with built-in briefs.', 24.99, 'Sports Wear', 'Adidas', '/images/adidas-shorts.jpg', 40],
-            
-            // Puma Products
-            ['Puma Essential Tee', 'Soft cotton t-shirt with classic Puma logo.', 24.99, 'T-Shirts', 'Puma', '/images/puma-tee.jpg', 60],
-            ['Puma Training Tee', 'DryCELL moisture-wicking technology keeps you dry.', 32.99, 'T-Shirts', 'Puma', '/images/puma-training.jpg', 55],
-            ['Puma Hoodie', 'Classic puma hoodie with drawstring hood.', 54.99, 'Hoodies', 'Puma', '/images/puma-hoodie.jpg', 35],
-            ['Puma Running Shoes', 'Lightweight running shoes with cushioned sole.', 79.99, 'Sports Wear', 'Puma', '/images/puma-shoes.jpg', 25],
-            
-            // Under Armour Products
-            ['UA Tech T-Shirt', 'Soft, anti-pill technology with UA Tech fabric.', 27.99, 'T-Shirts', 'Under Armour', '/images/ua-tech.jpg', 70],
-            ['UA HeatGear Tee', 'Compression fit training shirt with HeatGear fabric.', 34.99, 'T-Shirts', 'Under Armour', '/images/ua-heatgear.jpg', 48],
-            ['UA Storm Hoodie', 'Water-resistant hoodie with UA Storm technology.', 64.99, 'Hoodies', 'Under Armour', '/images/ua-hoodie.jpg', 32],
-            ['UA Running Leggings', 'High-rise training leggings with anti-odor technology.', 44.99, 'Sports Wear', 'Under Armour', '/images/ua-leggings.jpg', 28],
-            
-            // New Balance Products
-            ['NB Classics Tee', 'Retro style t-shirt with New Balance heritage logo.', 26.99, 'T-Shirts', 'New Balance', '/images/nb-classic.jpg', 62],
-            ['NB Impact Tee', 'NB DRY moisture-wicking technology for training.', 32.99, 'T-Shirts', 'New Balance', '/images/nb-impact.jpg', 53],
-            ['NB Hoodie', 'French terry hoodie with cozy fleece lining.', 57.99, 'Hoodies', 'New Balance', '/images/nb-hoodie.jpg', 38],
-            ['NB Running Shorts', 'NB ICE quick-dry shorts for running.', 29.99, 'Sports Wear', 'New Balance', '/images/nb-shorts.jpg', 42],
-            
-            // Custom/Esports Products
-            ['Hammper Style Hoodie', 'Premium oversized hoodie like Hammper. Ultra-soft fabric with oversized fit.', 49.99, 'Hoodies', 'Custom', '/images/hammper-hoodie.jpg', 25],
-            ['Esports Jersey Pro', 'Professional esports jersey with custom printing. Breathable mesh fabric.', 44.99, 'Esports', 'Custom', '/images/esports-jersey.jpg', 30],
-            ['Sticker Print Tee', 'Custom sticker printed t-shirt. Choose your favorite stickers.', 34.99, 'Sticker Printed', 'Custom', '/images/sticker-tee.jpg', 40],
-            ['Gaming Team Hoodie', 'Esports team edition hoodie with custom team logo.', 59.99, 'Esports', 'Custom', '/images/gaming-hoodie.jpg', 20],
-            ['Hammper Style Tee', 'Oversized t-shirt like Hammper with dropped shoulders.', 39.99, 'T-Shirts', 'Custom', '/images/hammper-tee.jpg', 35],
-            ['Sticker Bomb Tee', 'Full print sticker style t-shirt with random sticker design.', 44.99, 'Sticker Printed', 'Custom', '/images/sticker-bomb.jpg', 28],
-            ['Pro Gaming Tee', 'Breathable esports t-shirt with moisture-wicking fabric.', 37.99, 'Esports', 'Custom', '/images/pro-gaming.jpg', 45],
-            ['Custom Print Hoodie', 'Your design printed on premium hoodie.', 54.99, 'Hoodies', 'Custom', '/images/custom-hoodie.jpg', 22]
-        ];
+    // Insert sample products - FIXED with INSERT OR IGNORE based on name
+    const sampleProducts = [
+        // Adidas Products
+        ['Adidas Essential T-Shirt', 'Classic adidas t-shirt for everyday wear. Made with soft cotton fabric for maximum comfort.', 29.99, 'T-Shirts', 'Adidas', '/images/adidas-tshirt.jpg', 50],
+        ['Adidas Response T-Shirt', 'Performance fit training t-shirt with moisture-wicking technology.', 34.99, 'T-Shirts', 'Adidas', '/images/adidas-response.jpg', 45],
+        ['Adidas Sport Hoodie', 'Comfortable hoodie for training and casual wear. Features kangaroo pocket.', 59.99, 'Hoodies', 'Adidas', '/images/adidas-hoodie.jpg', 30],
+        ['Adidas Running Shorts', 'Lightweight running shorts with built-in briefs.', 24.99, 'Sports Wear', 'Adidas', '/images/adidas-shorts.jpg', 40],
+        
+        // Puma Products
+        ['Puma Essential Tee', 'Soft cotton t-shirt with classic Puma logo.', 24.99, 'T-Shirts', 'Puma', '/images/puma-tee.jpg', 60],
+        ['Puma Training Tee', 'DryCELL moisture-wicking technology keeps you dry.', 32.99, 'T-Shirts', 'Puma', '/images/puma-training.jpg', 55],
+        ['Puma Hoodie', 'Classic puma hoodie with drawstring hood.', 54.99, 'Hoodies', 'Puma', '/images/puma-hoodie.jpg', 35],
+        ['Puma Running Shoes', 'Lightweight running shoes with cushioned sole.', 79.99, 'Sports Wear', 'Puma', '/images/puma-shoes.jpg', 25],
+        
+        // Under Armour Products
+        ['UA Tech T-Shirt', 'Soft, anti-pill technology with UA Tech fabric.', 27.99, 'T-Shirts', 'Under Armour', '/images/ua-tech.jpg', 70],
+        ['UA HeatGear Tee', 'Compression fit training shirt with HeatGear fabric.', 34.99, 'T-Shirts', 'Under Armour', '/images/ua-heatgear.jpg', 48],
+        ['UA Storm Hoodie', 'Water-resistant hoodie with UA Storm technology.', 64.99, 'Hoodies', 'Under Armour', '/images/ua-hoodie.jpg', 32],
+        ['UA Running Leggings', 'High-rise training leggings with anti-odor technology.', 44.99, 'Sports Wear', 'Under Armour', '/images/ua-leggings.jpg', 28],
+        
+        // New Balance Products
+        ['NB Classics Tee', 'Retro style t-shirt with New Balance heritage logo.', 26.99, 'T-Shirts', 'New Balance', '/images/nb-classic.jpg', 62],
+        ['NB Impact Tee', 'NB DRY moisture-wicking technology for training.', 32.99, 'T-Shirts', 'New Balance', '/images/nb-impact.jpg', 53],
+        ['NB Hoodie', 'French terry hoodie with cozy fleece lining.', 57.99, 'Hoodies', 'New Balance', '/images/nb-hoodie.jpg', 38],
+        ['NB Running Shorts', 'NB ICE quick-dry shorts for running.', 29.99, 'Sports Wear', 'New Balance', '/images/nb-shorts.jpg', 42],
+        
+        // Custom/Esports Products
+        ['Hammper Style Hoodie', 'Premium oversized hoodie like Hammper. Ultra-soft fabric with oversized fit.', 49.99, 'Hoodies', 'Custom', '/images/hammper-hoodie.jpg', 25],
+        ['Esports Jersey Pro', 'Professional esports jersey with custom printing. Breathable mesh fabric.', 44.99, 'Esports', 'Custom', '/images/esports-jersey.jpg', 30],
+        ['Sticker Print Tee', 'Custom sticker printed t-shirt. Choose your favorite stickers.', 34.99, 'Sticker Printed', 'Custom', '/images/sticker-tee.jpg', 40],
+        ['Gaming Team Hoodie', 'Esports team edition hoodie with custom team logo.', 59.99, 'Esports', 'Custom', '/images/gaming-hoodie.jpg', 20],
+        ['Hammper Style Tee', 'Oversized t-shirt like Hammper with dropped shoulders.', 39.99, 'T-Shirts', 'Custom', '/images/hammper-tee.jpg', 35],
+        ['Sticker Bomb Tee', 'Full print sticker style t-shirt with random sticker design.', 44.99, 'Sticker Printed', 'Custom', '/images/sticker-bomb.jpg', 28],
+        ['Pro Gaming Tee', 'Breathable esports t-shirt with moisture-wicking fabric.', 37.99, 'Esports', 'Custom', '/images/pro-gaming.jpg', 45],
+        ['Custom Print Hoodie', 'Your design printed on premium hoodie.', 54.99, 'Hoodies', 'Custom', '/images/custom-hoodie.jpg', 22]
+    ];
 
-        for (const product of sampleProducts) {
-            await db.run(
-                'INSERT INTO products (name, description, price, category, brand, image_url, stock) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                product
-            );
-        }
-        console.log('✅ Sample products added');
+    for (const product of sampleProducts) {
+        await db.run(
+            'INSERT OR IGNORE INTO products (name, description, price, category, brand, image_url, stock) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            product
+        );
     }
+    console.log('✅ Products checked/added');
 
-    // Insert sample coupons
-    const couponCount = await db.get('SELECT COUNT(*) as count FROM coupons');
-    if (couponCount.count === 0) {
-        const sampleCoupons = [
-            ['WELCOME10', 'percentage', 10, 0, 100, date('now'), date('now', '+30 days'), 100],
-            ['SAVE20', 'percentage', 20, 500, 200, date('now'), date('now', '+30 days'), 50],
-            ['FREESHIP', 'fixed', 50, 0, 50, date('now'), date('now', '+30 days'), 200],
-            ['SUMMER25', 'percentage', 25, 1000, 300, date('now'), date('now', '+60 days'), 100],
-            ['FLASH50', 'percentage', 50, 2000, 500, date('now'), date('now', '+7 days'), 20]
-        ];
+    // Insert sample coupons - FIXED with INSERT OR IGNORE
+    const sampleCoupons = [
+        ['WELCOME10', 'percentage', 10, 0, 100, date('now'), date('now', '+30 days'), 100],
+        ['SAVE20', 'percentage', 20, 500, 200, date('now'), date('now', '+30 days'), 50],
+        ['FREESHIP', 'fixed', 50, 0, 50, date('now'), date('now', '+30 days'), 200],
+        ['SUMMER25', 'percentage', 25, 1000, 300, date('now'), date('now', '+60 days'), 100],
+        ['FLASH50', 'percentage', 50, 2000, 500, date('now'), date('now', '+7 days'), 20]
+    ];
 
-        for (const coupon of sampleCoupons) {
-            await db.run(
-                'INSERT INTO coupons (code, discount_type, discount_value, min_order_amount, max_discount, valid_from, valid_until, usage_limit) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-                coupon
-            );
-        }
-        console.log('✅ Sample coupons added');
+    for (const coupon of sampleCoupons) {
+        await db.run(
+            'INSERT OR IGNORE INTO coupons (code, discount_type, discount_value, min_order_amount, max_discount, valid_from, valid_until, usage_limit) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            coupon
+        );
     }
+    console.log('✅ Coupons checked/added');
 
     // Create default admin user if none exists
     const adminCount = await db.get('SELECT COUNT(*) as count FROM users WHERE is_admin = 1');
@@ -313,7 +292,7 @@ async function setupDatabase() {
         const hashedPassword = await bcrypt.hash('admin123', 10);
         
         await db.run(
-            'INSERT INTO users (username, email, password, is_admin) VALUES (?, ?, ?, ?)',
+            'INSERT OR IGNORE INTO users (username, email, password, is_admin) VALUES (?, ?, ?, ?)',
             ['admin', 'admin@sportswear.com', hashedPassword, 1]
         );
         console.log('✅ Default admin user created (username: admin, password: admin123)');

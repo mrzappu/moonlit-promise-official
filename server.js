@@ -13,51 +13,43 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ==================== CRITICAL: Set proper encoding for all responses ====================
+// Security Headers
 app.use((req, res, next) => {
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Content-Type', 'text/html; charset=UTF-8');
     res.charset = 'utf-8';
     next();
 });
 
 // Middleware
-app.use(express.json({ type: 'application/json' }));
-app.use(express.urlencoded({ extended: true, type: 'application/x-www-form-urlencoded' }));
-app.use(express.static('public', {
-    setHeaders: (res, path) => {
-        if (path.endsWith('.css')) {
-            res.setHeader('Content-Type', 'text/css; charset=UTF-8');
-        } else if (path.endsWith('.js')) {
-            res.setHeader('Content-Type', 'application/javascript; charset=UTF-8');
-        }
-    }
-}));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static('public'));
 
 app.use(fileUpload({
-    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
-    createParentPath: true,
-    useTempFiles: true,
-    tempFileDir: '/tmp/'
+    limits: { fileSize: 5 * 1024 * 1024 },
+    createParentPath: true
 }));
 
-// Session setup
+// Session setup - FIXED for Render
 app.use(session({
     secret: process.env.SESSION_SECRET || 'default-secret-change-this',
     resave: false,
     saveUninitialized: false,
     cookie: {
-        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+        maxAge: 30 * 24 * 60 * 60 * 1000,
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: false, // Set to false for Render (HTTPS is handled by proxy)
         sameSite: 'lax'
-    }
+    },
+    proxy: true // Important for Render
 }));
 
-// Passport setup
 app.use(passport.initialize());
 app.use(passport.session());
 
-// View engine
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
@@ -70,7 +62,7 @@ setupDatabase().then(database => {
     console.error('❌ Database connection error:', err);
 });
 
-// Passport Discord Strategy
+// ==================== FIXED DISCORD STRATEGY ====================
 passport.use(new DiscordStrategy({
     clientID: process.env.DISCORD_CLIENT_ID,
     clientSecret: process.env.DISCORD_CLIENT_SECRET,
@@ -78,8 +70,13 @@ passport.use(new DiscordStrategy({
     scope: ['identify', 'email']
 }, async (accessToken, refreshToken, profile, done) => {
     try {
+        console.log('📝 Discord login attempt for:', profile.username);
+        console.log('Profile ID:', profile.id);
+        console.log('Email:', profile.email);
+        
         if (!db) {
-            return done(new Error('Database not initialized'));
+            console.error('❌ Database not ready');
+            return done(null, false, { message: 'Database not ready' });
         }
 
         // Check if user exists
@@ -100,28 +97,22 @@ passport.use(new DiscordStrategy({
             );
             
             user = await db.get('SELECT * FROM users WHERE id = ?', [result.lastID]);
-            
-            // Log registration
+            console.log('✅ New user created:', user.username);
             await discordLogger.logRegister(user);
         } else {
-            // Update last login
+            // Update existing user
             await db.run(
                 'UPDATE users SET last_login = CURRENT_TIMESTAMP, username = ?, email = ?, avatar = ?, is_admin = ? WHERE discord_id = ?',
                 [profile.username, profile.email, profile.avatar, isAdmin, profile.id]
             );
             
             user = await db.get('SELECT * FROM users WHERE discord_id = ?', [profile.id]);
+            console.log('✅ Existing user logged in:', user.username);
         }
-
-        // Log activity
-        await db.run(
-            'INSERT INTO user_activity (user_id, action, ip_address) VALUES (?, ?, ?)',
-            [user.id, 'login', req.ip]
-        );
 
         return done(null, user);
     } catch (error) {
-        console.error('Discord strategy error:', error);
+        console.error('❌ Discord strategy error:', error);
         return done(error);
     }
 }));
@@ -160,11 +151,6 @@ function ensureAdmin(req, res, next) {
 
 // ==================== PUBLIC ROUTES ====================
 
-// Test route
-app.get('/test', (req, res) => {
-    res.send('<h1>Test Page</h1><p>If you see this, encoding is working correctly!</p>');
-});
-
 // Home page
 app.get('/', async (req, res) => {
     try {
@@ -177,16 +163,26 @@ app.get('/', async (req, res) => {
         }
         
         const featuredProducts = await db.all('SELECT * FROM products ORDER BY RANDOM() LIMIT 8');
+        
+        // Get brands from database
+        const brandRows = await db.all('SELECT DISTINCT brand FROM products WHERE brand IS NOT NULL AND brand != ""');
+        let brands = brandRows.map(row => row.brand);
+        
+        if (!brands || brands.length === 0) {
+            brands = ['Adidas', 'Puma', 'Under Armour', 'New Balance'];
+        }
+        
         res.render('index', { 
             user: req.user || null, 
             featuredProducts: featuredProducts || [],
-            brands: ['Adidas', 'Puma', 'Under Armour', 'New Balance']
+            brands: brands
         });
     } catch (error) {
         console.error('Home page error:', error);
-        res.status(500).render('error', { 
-            message: 'Server error',
-            user: req.user || null 
+        res.render('index', { 
+            user: req.user || null, 
+            featuredProducts: [],
+            brands: ['Adidas', 'Puma', 'Under Armour', 'New Balance']
         });
     }
 });
@@ -290,6 +286,46 @@ app.get('/terms', (req, res) => {
     res.render('terms', { user: req.user || null });
 });
 
+// ==================== FIXED AUTH ROUTES ====================
+
+// Discord login
+app.get('/auth/discord', passport.authenticate('discord'));
+
+// Discord callback - FIXED
+app.get('/auth/discord/callback', 
+    (req, res, next) => {
+        console.log('📝 Callback received from Discord');
+        next();
+    },
+    passport.authenticate('discord', { 
+        failureRedirect: '/',
+        failureMessage: true 
+    }),
+    async (req, res) => {
+        try {
+            console.log('✅ Login successful for:', req.user.username);
+            await discordLogger.logLogin(req.user, req.ip);
+            const returnTo = req.session.returnTo || '/';
+            delete req.session.returnTo;
+            res.redirect(returnTo);
+        } catch (error) {
+            console.error('❌ Callback error:', error);
+            res.redirect('/');
+        }
+    }
+);
+
+// Logout
+app.get('/logout', (req, res, next) => {
+    req.logout(function(err) {
+        if (err) { 
+            console.error('Logout error:', err);
+            return next(err); 
+        }
+        res.redirect('/');
+    });
+});
+
 // ==================== CART ROUTES ====================
 
 // View cart
@@ -381,21 +417,6 @@ app.post('/cart/update/:cartId', ensureAuthenticated, async (req, res) => {
     try {
         const { quantity } = req.body;
         
-        const cartItem = await db.get(`
-            SELECT c.*, p.stock 
-            FROM cart c 
-            JOIN products p ON c.product_id = p.id 
-            WHERE c.id = ? AND c.user_id = ?
-        `, [req.params.cartId, req.user.id]);
-
-        if (!cartItem) {
-            return res.status(404).json({ error: 'Cart item not found' });
-        }
-
-        if (quantity > cartItem.stock) {
-            return res.status(400).json({ error: 'Insufficient stock' });
-        }
-
         await db.run(
             'UPDATE cart SET quantity = ? WHERE id = ? AND user_id = ?',
             [quantity, req.params.cartId, req.user.id]
@@ -411,20 +432,9 @@ app.post('/cart/update/:cartId', ensureAuthenticated, async (req, res) => {
 // Remove from cart
 app.post('/cart/remove/:cartId', ensureAuthenticated, async (req, res) => {
     try {
-        const cartItem = await db.get(
-            'SELECT c.*, p.name FROM cart c JOIN products p ON c.product_id = p.id WHERE c.id = ? AND c.user_id = ?',
-            [req.params.cartId, req.user.id]
-        );
-
-        if (!cartItem) {
-            return res.status(404).json({ error: 'Item not found' });
-        }
-
-        await db.run('DELETE FROM cart WHERE id = ?', [req.params.cartId]);
-
-        await discordLogger.logCartRemove(req.user, { name: cartItem.name });
-
-        res.json({ success: true, message: 'Item removed from cart' });
+        await db.run('DELETE FROM cart WHERE id = ? AND user_id = ?', 
+            [req.params.cartId, req.user.id]);
+        res.json({ success: true });
     } catch (error) {
         console.error('Remove from cart error:', error);
         res.status(500).json({ error: 'Server error' });
@@ -617,7 +627,7 @@ app.post('/checkout/process', ensureAuthenticated, async (req, res) => {
         }
 
         // Record payment
-        const paymentResult = await db.run(`
+        await db.run(`
             INSERT INTO payments (order_id, user_id, amount, payment_method, payment_proof, status)
             VALUES (?, ?, ?, ?, ?, ?)
         `, [orderResult.lastID, req.user.id, total, paymentMethod, paymentProof, 'pending']);
@@ -1469,33 +1479,6 @@ app.get('/api/products', async (req, res) => {
     }
 });
 
-// ==================== AUTH ROUTES ====================
-
-// Discord login
-app.get('/auth/discord', passport.authenticate('discord'));
-
-// Discord callback
-app.get('/auth/discord/callback', 
-    passport.authenticate('discord', { 
-        failureRedirect: '/',
-        failureMessage: true 
-    }),
-    async (req, res) => {
-        await discordLogger.logLogin(req.user, req.ip);
-        const returnTo = req.session.returnTo || '/';
-        delete req.session.returnTo;
-        res.redirect(returnTo);
-    }
-);
-
-// Logout
-app.get('/logout', (req, res, next) => {
-    req.logout(function(err) {
-        if (err) { return next(err); }
-        res.redirect('/');
-    });
-});
-
 // ==================== ERROR HANDLING ====================
 
 // 404 handler
@@ -1508,7 +1491,7 @@ app.use((req, res) => {
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-    console.error('❌ Server error:', err.stack);
+    console.error('❌ Server error:', err);
     discordLogger.logError(err, { location: req.path, user: req.user });
     res.status(500).render('error', { 
         message: 'Something went wrong!',
@@ -1518,9 +1501,9 @@ app.use((err, req, res, next) => {
 
 // ==================== START SERVER ====================
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
     console.log(`✅ Server running on port ${PORT}`);
-    console.log(`🌍 Website: http://localhost:${PORT}`);
+    console.log(`🌍 Website: https://moonlit-promise-new.onrender.com`);
     discordLogger.logSystem(`Server started on port ${PORT}`, 'info');
 });
 

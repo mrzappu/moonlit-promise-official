@@ -16,6 +16,16 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Debug environment variables
+console.log('=== ENVIRONMENT CHECK ===');
+console.log('DISCORD_BOT_TOKEN exists:', !!process.env.DISCORD_BOT_TOKEN);
+console.log('DISCORD_BOT_TOKEN length:', process.env.DISCORD_BOT_TOKEN ? process.env.DISCORD_BOT_TOKEN.length : 0);
+console.log('DISCORD_CLIENT_ID:', process.env.DISCORD_CLIENT_ID);
+console.log('DISCORD_CLIENT_SECRET exists:', !!process.env.DISCORD_CLIENT_SECRET);
+console.log('DISCORD_CALLBACK_URL:', process.env.DISCORD_CALLBACK_URL);
+console.log('SESSION_SECRET exists:', !!process.env.SESSION_SECRET);
+console.log('========================');
+
 // Security Headers
 app.use((req, res, next) => {
     res.setHeader('X-Frame-Options', 'DENY');
@@ -23,7 +33,7 @@ app.use((req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
     res.setHeader('Content-Type', 'text/html; charset=UTF-8');
-    res.charset = 'utf-8';
+    res.charset = 'utf-8');
     next();
 });
 
@@ -933,7 +943,7 @@ app.get('/checkout', ensureAuthenticated, async (req, res) => {
         const total = subtotal + tax + shipping - discount;
 
         const tempOrderId = 'TEMP' + Date.now();
-        const upiId = 'sportswear@okhdfcbank';
+        const upiId = process.env.UPI_ID || 'sportswear@okhdfcbank';
         const payeeName = 'SportsWear';
         const amount = total.toFixed(2);
         
@@ -1048,7 +1058,8 @@ app.post('/checkout/process', ensureAuthenticated, async (req, res) => {
             payment_method: paymentMethod,
             status: 'pending',
             phone,
-            shipping_address: fullAddress
+            shipping_address: fullAddress,
+            created_at: new Date().toISOString()
         };
         
         await discordLogger.logOrderCreate(req.user, order, cartItems, shippingDetails);
@@ -1220,6 +1231,7 @@ app.post('/profile/delete', ensureAuthenticated, async (req, res) => {
         await db.run('DELETE FROM payments WHERE user_id = ?', [req.user.id]);
         await db.run('DELETE FROM user_activity WHERE user_id = ?', [req.user.id]);
         await db.run('DELETE FROM password_resets WHERE user_id = ?', [req.user.id]);
+        await db.run('DELETE FROM orders WHERE user_id = ?', [req.user.id]);
         await db.run('DELETE FROM users WHERE id = ?', [req.user.id]);
         
         await db.run('COMMIT');
@@ -1386,7 +1398,7 @@ app.post('/order/:id/reorder', ensureAuthenticated, async (req, res) => {
 // Cancel order
 app.post('/order/:id/cancel', ensureAuthenticated, async (req, res) => {
     try {
-        const order = await db.get('SELECT * FROM orders WHERE id = ? AND user_id = ? AND status = "pending"', [req.params.id, req.user.id]);
+        const order = await db.get('SELECT * FROM orders WHERE id = ? AND user_id = ? AND status IN ("pending", "processing")', [req.params.id, req.user.id]);
         
         if (!order) {
             return res.status(400).json({ error: 'Order cannot be cancelled' });
@@ -1405,12 +1417,48 @@ app.post('/order/:id/cancel', ensureAuthenticated, async (req, res) => {
         
         await db.run('COMMIT');
         
-        await discordLogger.logOrderUpdate(req.user, order, 'pending', 'cancelled');
+        await discordLogger.logOrderUpdate(req.user, order, order.status, 'cancelled', 'user');
         res.json({ success: true });
     } catch (error) {
         await db.run('ROLLBACK');
         console.error('Cancel order error:', error);
         res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// Track order
+app.get('/track-order/:id', ensureAuthenticated, async (req, res) => {
+    try {
+        const order = await db.get(`
+            SELECT o.*, u.username 
+            FROM orders o 
+            JOIN users u ON o.user_id = u.id 
+            WHERE o.id = ? AND o.user_id = ?
+        `, [req.params.id, req.user.id]);
+        
+        if (!order) {
+            return res.status(404).render('error', { 
+                message: 'Order not found',
+                user: req.user || null 
+            });
+        }
+        
+        const trackingStatus = [
+            { status: 'Order Placed', date: order.created_at, completed: true },
+            { status: 'Payment Confirmed', date: order.updated_at, completed: order.status !== 'pending' },
+            { status: 'Processing', date: null, completed: ['processing', 'shipped', 'delivered', 'completed'].includes(order.status) },
+            { status: 'Shipped', date: null, completed: ['shipped', 'delivered', 'completed'].includes(order.status) },
+            { status: 'Out for Delivery', date: null, completed: ['delivered', 'completed'].includes(order.status) },
+            { status: 'Delivered', date: null, completed: ['delivered', 'completed'].includes(order.status) }
+        ];
+        
+        res.render('track-order', { user: req.user, order, trackingStatus });
+    } catch (error) {
+        console.error('Track order error:', error);
+        res.status(500).render('error', { 
+            message: 'Server error',
+            user: req.user || null 
+        });
     }
 });
 

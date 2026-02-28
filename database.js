@@ -101,7 +101,6 @@ async function setupDatabase() {
             FOREIGN KEY (user_id) REFERENCES users(id)
         );
 
-        -- Insert sample categories and brands
         INSERT OR IGNORE INTO categories (name, brand) VALUES 
             ('T-Shirts', 'Adidas'),
             ('T-Shirts', 'Puma'),
@@ -119,7 +118,7 @@ async function setupDatabase() {
             ('Sticker Printed', 'Custom');
     `);
 
-    // Check if phone column exists in orders table, if not add it
+    // Check if phone column exists
     const tableInfo = await db.all("PRAGMA table_info(orders)");
     const hasPhone = tableInfo.some(col => col.name === 'phone');
     
@@ -128,7 +127,7 @@ async function setupDatabase() {
         console.log('Added phone column to orders table');
     }
 
-    // Check if upi_transaction_id column exists in payments table
+    // Check for upi_transaction_id column
     const paymentsInfo = await db.all("PRAGMA table_info(payments)");
     const hasUpiTxnId = paymentsInfo.some(col => col.name === 'upi_transaction_id');
     
@@ -139,31 +138,22 @@ async function setupDatabase() {
 
     // Insert sample products
     const sampleProducts = [
-        // Adidas Products
         ['Adidas Essential T-Shirt', 'Classic adidas t-shirt for everyday wear', 29.99, 'T-Shirts', 'Adidas', '/images/adidas-tshirt.jpg', 50],
         ['Adidas Response T-Shirt', 'Performance fit training t-shirt', 34.99, 'T-Shirts', 'Adidas', '/images/adidas-response.jpg', 45],
         ['Adidas Sport Hoodie', 'Comfortable hoodie for training', 59.99, 'Hoodies', 'Adidas', '/images/adidas-hoodie.jpg', 30],
         ['Adidas Running Shorts', 'Lightweight running shorts', 24.99, 'Sports Wear', 'Adidas', '/images/adidas-shorts.jpg', 40],
-        
-        // Puma Products
         ['Puma Essential Tee', 'Soft cotton t-shirt', 24.99, 'T-Shirts', 'Puma', '/images/puma-tee.jpg', 60],
         ['Puma Training Tee', 'DryCELL moisture-wicking technology', 32.99, 'T-Shirts', 'Puma', '/images/puma-training.jpg', 55],
         ['Puma Hoodie', 'Classic puma hoodie', 54.99, 'Hoodies', 'Puma', '/images/puma-hoodie.jpg', 35],
         ['Puma Running Shoes', 'Lightweight running shoes', 79.99, 'Sports Wear', 'Puma', '/images/puma-shoes.jpg', 25],
-        
-        // Under Armour Products
         ['UA Tech T-Shirt', 'Soft, anti-pill technology', 27.99, 'T-Shirts', 'Under Armour', '/images/ua-tech.jpg', 70],
         ['UA HeatGear Tee', 'Compression fit training shirt', 34.99, 'T-Shirts', 'Under Armour', '/images/ua-heatgear.jpg', 48],
         ['UA Storm Hoodie', 'Water-resistant hoodie', 64.99, 'Hoodies', 'Under Armour', '/images/ua-hoodie.jpg', 32],
         ['UA Running Leggings', 'High-rise training leggings', 44.99, 'Sports Wear', 'Under Armour', '/images/ua-leggings.jpg', 28],
-        
-        // New Balance Products
         ['NB Classics Tee', 'Retro style t-shirt', 26.99, 'T-Shirts', 'New Balance', '/images/nb-classic.jpg', 62],
         ['NB Impact Tee', 'NB DRY moisture-wicking', 32.99, 'T-Shirts', 'New Balance', '/images/nb-impact.jpg', 53],
         ['NB Hoodie', 'French terry hoodie', 57.99, 'Hoodies', 'New Balance', '/images/nb-hoodie.jpg', 38],
         ['NB Running Shorts', 'NB ICE quick-dry', 29.99, 'Sports Wear', 'New Balance', '/images/nb-shorts.jpg', 42],
-        
-        // Custom/Esports Products
         ['Hammper Style Hoodie', 'Premium oversized hoodie like Hammper', 49.99, 'Hoodies', 'Custom', '/images/hammper-hoodie.jpg', 25],
         ['Esports Jersey Pro', 'Professional esports jersey with custom printing', 44.99, 'Esports', 'Custom', '/images/esports-jersey.jpg', 30],
         ['Sticker Print Tee', 'Custom sticker printed t-shirt', 34.99, 'Sticker Printed', 'Custom', '/images/sticker-tee.jpg', 40],

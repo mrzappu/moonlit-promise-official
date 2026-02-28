@@ -13,19 +13,13 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Security Headers - CRITICAL
+// Security Headers
 app.use((req, res, next) => {
-    // Prevent clickjacking
     res.setHeader('X-Frame-Options', 'DENY');
-    // Enable XSS protection
     res.setHeader('X-XSS-Protection', '1; mode=block');
-    // Prevent MIME type sniffing
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    // Referrer policy
     res.setHeader('Referrer-Policy', 'same-origin');
-    // Strict Transport Security
     res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
-    // Content Security Policy
     res.setHeader('Content-Security-Policy', 
         "default-src 'self'; " +
         "script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; " +
@@ -35,7 +29,6 @@ app.use((req, res, next) => {
         "connect-src 'self'; " +
         "frame-ancestors 'none';"
     );
-    // Set proper encoding
     res.setHeader('Content-Type', 'text/html; charset=UTF-8');
     res.charset = 'utf-8';
     next();
@@ -55,7 +48,7 @@ app.use(express.static('public', {
 }));
 
 app.use(fileUpload({
-    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+    limits: { fileSize: 5 * 1024 * 1024 },
     createParentPath: true,
     useTempFiles: true,
     tempFileDir: '/tmp/'
@@ -67,18 +60,16 @@ app.use(session({
     resave: false,
     saveUninitialized: false,
     cookie: {
-        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+        maxAge: 30 * 24 * 60 * 60 * 1000,
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax'
     }
 }));
 
-// Passport setup
 app.use(passport.initialize());
 app.use(passport.session());
 
-// View engine
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
@@ -177,31 +168,51 @@ function ensureAdmin(req, res, next) {
 
 // Test route
 app.get('/test', (req, res) => {
-    res.send('<h1>Test Page</h1><p>If you see this, encoding is working correctly!</p>');
+    res.send('<h1>Test Page</h1><p>If you see this, the server is working!</p>');
 });
 
-// Home page
+// ==================== FIXED HOME PAGE ROUTE ====================
+// Home page - FIXED to pass brands to template
 app.get('/', async (req, res) => {
     try {
         if (!db) {
+            // Database not ready - show fallback
             return res.render('index', { 
                 user: req.user || null, 
                 featuredProducts: [],
-                brands: ['Adidas', 'Puma', 'Under Armour', 'New Balance']
+                brands: ['Adidas', 'Puma', 'Under Armour', 'New Balance', 'Custom']
             });
         }
         
+        // Get 8 random featured products
         const featuredProducts = await db.all('SELECT * FROM products ORDER BY RANDOM() LIMIT 8');
+        
+        // Get unique brands from database for the dropdown
+        const dbBrands = await db.all('SELECT DISTINCT brand FROM products WHERE brand IS NOT NULL AND brand != "" ORDER BY brand');
+        
+        // Create brand list - use database brands if available, otherwise use defaults
+        let brandList = [];
+        if (dbBrands && dbBrands.length > 0) {
+            brandList = dbBrands.map(b => b.brand);
+        } else {
+            brandList = ['Adidas', 'Puma', 'Under Armour', 'New Balance', 'Custom'];
+        }
+        
+        console.log('Home page loaded - Brands:', brandList); // Debug log
+        console.log('Featured products count:', featuredProducts ? featuredProducts.length : 0);
+        
         res.render('index', { 
             user: req.user || null, 
             featuredProducts: featuredProducts || [],
-            brands: ['Adidas', 'Puma', 'Under Armour', 'New Balance']
+            brands: brandList
         });
     } catch (error) {
         console.error('Home page error:', error);
-        res.status(500).render('error', { 
-            message: 'Server error',
-            user: req.user || null 
+        // Even on error, show the page with defaults
+        res.render('index', { 
+            user: req.user || null, 
+            featuredProducts: [],
+            brands: ['Adidas', 'Puma', 'Under Armour', 'New Balance', 'Custom']
         });
     }
 });
@@ -510,7 +521,7 @@ app.post('/cart/apply-coupon', ensureAuthenticated, async (req, res) => {
 
 // ==================== CHECKOUT ROUTES ====================
 
-// Checkout page with QR code generation
+// Checkout page
 app.get('/checkout', ensureAuthenticated, async (req, res) => {
     try {
         const cartItems = await db.all(`
@@ -658,7 +669,7 @@ app.post('/checkout/process', ensureAuthenticated, async (req, res) => {
     }
 });
 
-// API to generate QR code for amount
+// API to generate QR code
 app.post('/api/generate-qr', ensureAuthenticated, async (req, res) => {
     try {
         const { amount } = req.body;
@@ -1338,7 +1349,7 @@ app.post('/admin/orders/:id/verify-payment', ensureAdmin, async (req, res) => {
     }
 });
 
-// View payment proof (admin only)
+// View payment proof
 app.get('/admin/payment-proof/:orderId', ensureAdmin, async (req, res) => {
     try {
         const payment = await db.get('SELECT * FROM payments WHERE order_id = ?', [req.params.orderId]);
